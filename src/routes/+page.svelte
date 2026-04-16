@@ -10,6 +10,23 @@
 	let saveError = $state('');
 	let showTagInput = $state<string | null>(null);
 	let tagInputValue = $state('');
+	let showNewCollection = $state(false);
+	let newCollectionName = $state('');
+	let newCollectionIcon = $state('📁');
+
+	async function createCollection() {
+		const name = newCollectionName.trim();
+		if (!name) return;
+		await fetch('/api/collections', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, icon: newCollectionIcon })
+		});
+		newCollectionName = '';
+		newCollectionIcon = '📁';
+		showNewCollection = false;
+		await invalidateAll();
+	}
 
 	function onKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
@@ -166,21 +183,41 @@
 			</button>
 		</nav>
 
-		{#if data.collections.length > 0}
-			<div class="sidebar-section">
+		<div class="sidebar-section">
+			<div class="section-header">
 				<p class="section-label">Collections</p>
-				{#each data.collections as col}
-					<button
-						class="nav-item"
-						class:active={data.activeCollection === col.id}
-						onclick={() => navTo({ collection: col.id, tag: null, filter: 'all' })}
-					>
-						<span>{col.icon}</span>
-						{col.name}
-					</button>
-				{/each}
+				<button class="section-add" onclick={() => { showNewCollection = !showNewCollection; newCollectionName = ''; }} title="New collection">+</button>
 			</div>
-		{/if}
+			{#if showNewCollection}
+				<div class="new-collection-form">
+					<input
+						class="col-icon-input"
+						type="text"
+						bind:value={newCollectionIcon}
+						maxlength="2"
+					/>
+					<input
+						class="col-name-input"
+						type="text"
+						placeholder="Collection name"
+						bind:value={newCollectionName}
+						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') showNewCollection = false; }}
+						autofocus
+					/>
+					<button class="col-save-btn" onclick={createCollection} disabled={!newCollectionName.trim()}>Add</button>
+				</div>
+			{/if}
+			{#each data.collections as col}
+				<button
+					class="nav-item"
+					class:active={data.activeCollection === col.id}
+					onclick={() => navTo({ collection: col.id, tag: null, filter: 'all' })}
+				>
+					<span>{col.icon}</span>
+					{col.name}
+				</button>
+			{/each}
+		</div>
 
 		{#if data.tags.length > 0}
 			<div class="sidebar-section">
@@ -395,6 +432,77 @@
 		border-top: 1px solid var(--color-border);
 		padding: 0.5rem;
 	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding-right: 0.375rem;
+	}
+
+	.section-add {
+		background: none;
+		border: none;
+		color: var(--color-subtle);
+		font-size: 1rem;
+		line-height: 1;
+		cursor: pointer;
+		padding: 0 0.25rem;
+		border-radius: 4px;
+		transition: color 0.1s;
+	}
+
+	.section-add:hover { color: var(--color-text); }
+
+	.new-collection-form {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.375rem 0.375rem;
+	}
+
+	.col-icon-input {
+		width: 2rem;
+		text-align: center;
+		border: 1px solid var(--color-border);
+		border-radius: 5px;
+		padding: 0.25rem;
+		font-size: 0.875rem;
+		font-family: inherit;
+		background: var(--color-bg);
+		flex-shrink: 0;
+	}
+
+	.col-icon-input:focus { outline: none; border-color: var(--color-text); }
+
+	.col-name-input {
+		flex: 1;
+		min-width: 0;
+		border: 1px solid var(--color-border);
+		border-radius: 5px;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		background: var(--color-bg);
+	}
+
+	.col-name-input:focus { outline: none; border-color: var(--color-text); }
+	.col-name-input::placeholder { color: var(--color-subtle); }
+
+	.col-save-btn {
+		background: var(--color-text);
+		color: #fff;
+		border: none;
+		border-radius: 5px;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		font-family: inherit;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.col-save-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 	.section-label {
 		font-size: 0.6875rem;
