@@ -112,6 +112,15 @@
 		await invalidateAll();
 	}
 
+	async function moveToCollection(articleId: string, collectionId: string | null) {
+		await fetch(`/api/articles/${articleId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ collectionId })
+		});
+		await invalidateAll();
+	}
+
 	async function removeTag(articleId: string, tagId: string) {
 		await fetch(`/api/articles/${articleId}/tags/${tagId}`, { method: 'DELETE' });
 		await invalidateAll();
@@ -325,6 +334,18 @@
 							</button>
 							{#if !article.isArchived}
 								<button class="act" onclick={() => archiveArticle(article.id)}>Archive</button>
+							{/if}
+							{#if data.collections.length > 0}
+								<select
+									class="act col-select"
+									value={article.collectionId ?? ''}
+									onchange={(e) => moveToCollection(article.id, (e.currentTarget as HTMLSelectElement).value || null)}
+								>
+									<option value="">Move to…</option>
+									{#each data.collections as col}
+										<option value={col.id}>{col.icon} {col.name}</option>
+									{/each}
+								</select>
 							{/if}
 							<button class="act act-del" onclick={() => deleteArticle(article.id)}>Delete</button>
 						</div>
@@ -826,6 +847,12 @@
 		background: var(--color-text);
 		border-color: var(--color-text);
 		color: #fff;
+	}
+
+	.col-select {
+		cursor: pointer;
+		appearance: none;
+		padding-right: 0.6em;
 	}
 
 	.act-del:hover {
