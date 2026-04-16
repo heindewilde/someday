@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
 import { parseArticle } from '$lib/server/parser';
+import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -26,6 +27,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	parsedUrl.search = '';
 	parsedUrl.hash = '';
 	const cleanUrl = parsedUrl.toString();
+
+	const [existing] = await db
+		.select({ id: articles.id })
+		.from(articles)
+		.where(and(eq(articles.userId, locals.user.id), eq(articles.url, cleanUrl)));
+
+	if (existing) error(409, { message: 'You already saved this article.' });
 
 	try {
 		const parsed = await parseArticle(cleanUrl);

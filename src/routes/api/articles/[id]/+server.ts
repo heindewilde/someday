@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { articles } from '$lib/server/schema';
+import { articles, collections } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -20,6 +20,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!Object.keys(updates).length) error(400, 'No valid fields to update');
+
+	if (updates.collectionId != null) {
+		const [col] = await db
+			.select({ id: collections.id })
+			.from(collections)
+			.where(and(eq(collections.id, updates.collectionId as string), eq(collections.userId, locals.user.id)));
+		if (!col) error(403, 'Collection not found');
+	}
 
 	await db
 		.update(articles)

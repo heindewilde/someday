@@ -11,8 +11,6 @@
 	--color-text: #1c1c1a;
 	--color-muted: #78786e;
 	--color-subtle: #a8a89e;
-	--color-accent: #1c1c1a;
-	--color-accent-hover: #3c3c38;
 
 	--radius-sm: 0.375rem;
 	--radius-md: 0.5rem;
@@ -22,6 +20,19 @@
 	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
 	--shadow-md: 0 2px 8px 0 rgb(0 0 0 / 0.06), 0 1px 2px 0 rgb(0 0 0 / 0.04);
 	--shadow-lg: 0 8px 24px 0 rgb(0 0 0 / 0.08), 0 2px 4px 0 rgb(0 0 0 / 0.04);
+}
+
+[data-theme='dark'] {
+	--color-bg: #111110;
+	--color-surface: #1c1c1a;
+	--color-border: #2e2e2b;
+	--color-border-strong: #3d3d3a;
+	--color-text: #f5f5f0;
+	--color-muted: #a8a89e;
+	--color-subtle: #78786e;
+	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+	--shadow-md: 0 2px 8px 0 rgb(0 0 0 / 0.3), 0 1px 2px 0 rgb(0 0 0 / 0.2);
+	--shadow-lg: 0 8px 24px 0 rgb(0 0 0 / 0.4), 0 2px 4px 0 rgb(0 0 0 / 0.2);
 }
 
 * {
@@ -36,8 +47,8 @@ html {
 }
 
 ::selection {
-	background: #1c1c1a;
-	color: #fff;
+	background: var(--color-text);
+	color: var(--color-bg);
 }
 
 :focus-visible {
