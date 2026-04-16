@@ -2,9 +2,17 @@
 	import { invalidateAll } from '$app/navigation';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { addToast } from '$lib/toasts.svelte';
+	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
 
 	let { data } = $props();
 
+	// --- Optimistic article state ---
+	type Article = typeof data.articles[0];
+	let articles = $state<Article[]>([...data.articles]);
+	$effect(() => { articles = [...data.articles]; });
+
+	// --- UI state ---
 	let urlInput = $state('');
 	let saving = $state(false);
 	let saveError = $state('');
@@ -13,35 +21,63 @@
 	let showNewCollection = $state(false);
 	let newCollectionName = $state('');
 	let newCollectionIcon = $state('📁');
+	let hoveredArticleId = $state<string | null>(null);
+	let showShortcutHelp = $state(false);
+	let isDark = $state(false);
+	let searchValue = $state(data.q ?? '');
+	let searchTimer: ReturnType<typeof setTimeout>;
 
-	async function createCollection() {
-		const name = newCollectionName.trim();
-		if (!name) return;
-		await fetch('/api/collections', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name, icon: newCollectionIcon })
-		});
-		newCollectionName = '';
-		newCollectionIcon = '📁';
-		showNewCollection = false;
-		await invalidateAll();
+	$effect(() => { isDark = document.documentElement.dataset.theme === 'dark'; });
+	$effect(() => { searchValue = data.q ?? ''; });
+
+	// --- Theme ---
+	function toggleDark() {
+		isDark = !isDark;
+		document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+		localStorage.setItem('theme', isDark ? 'dark' : 'light');
 	}
 
+	// --- Navigation ---
+	function navTo(params: Record<string, string | null>) {
+		const u = new URL(page.url);
+		for (const [k, v] of Object.entries(params)) {
+			if (v === null) u.searchParams.delete(k);
+			else u.searchParams.set(k, v);
+		}
+		goto(u.toString());
+	}
+
+	function onSearchInput(value: string) {
+		searchValue = value;
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => navTo({ q: value || null, offset: null }), 300);
+	}
+
+	// --- Paste shortcut ---
 	function onKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
-		const isEditing = ['INPUT', 'TEXTAREA'].includes(target.tagName);
+		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || (target as HTMLElement).isContentEditable;
+
 		if (!isEditing && (e.metaKey || e.ctrlKey) && e.key === 'v') {
 			e.preventDefault();
 			navigator.clipboard.readText().then((text) => {
 				const trimmed = text.trim();
-				if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-					saveUrl(trimmed);
-				}
+				if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) saveUrl(trimmed);
 			});
+		}
+		if (e.key === 'Escape') { showShortcutHelp = false; return; }
+		if (!isEditing && e.key === '?') { e.preventDefault(); showShortcutHelp = true; return; }
+		if (!isEditing && hoveredArticleId) {
+			const a = articles.find(x => x.id === hoveredArticleId);
+			if (!a) return;
+			if (e.key === 'r') { e.preventDefault(); toggleRead(a.id, a.isRead ?? false); }
+			if (e.key === 'f') { e.preventDefault(); toggleFavorite(a.id, a.isFavorite ?? false); }
+			if (e.key === 'e') { e.preventDefault(); archiveArticle(a.id); }
+			if (e.key === 'Delete') { e.preventDefault(); deleteArticle(a.id); }
 		}
 	}
 
+	// --- Save URL ---
 	async function saveUrl(url: string) {
 		if (!url.trim()) return;
 		saving = true;
@@ -53,11 +89,11 @@
 				body: JSON.stringify({ url })
 			});
 			if (!res.ok) {
-				const err = await res.json();
+				const err = await res.json().catch(() => ({}));
 				saveError = err.message ?? 'Failed to save';
 			} else {
 				urlInput = '';
-				await invalidateAll();
+				invalidateAll();
 			}
 		} catch {
 			saveError = 'Failed to save article';
@@ -66,81 +102,120 @@
 		}
 	}
 
-	async function toggleRead(id: string, isRead: boolean) {
-		await fetch(`/api/articles/${id}`, {
+	// --- Mutations ---
+	async function patch(id: string, body: Record<string, unknown>) {
+		const res = await fetch(`/api/articles/${id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ isRead: !isRead })
+			body: JSON.stringify(body)
 		});
-		await invalidateAll();
+		if (!res.ok) throw new Error('Request failed');
+	}
+
+	async function toggleRead(id: string, isRead: boolean) {
+		const a = articles.find(x => x.id === id);
+		if (!a) return;
+		a.isRead = !isRead;
+		try { await patch(id, { isRead: !isRead }); invalidateAll(); }
+		catch { a.isRead = isRead; addToast('Failed to update', 'error'); }
 	}
 
 	async function toggleFavorite(id: string, isFavorite: boolean) {
-		await fetch(`/api/articles/${id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ isFavorite: !isFavorite })
-		});
-		await invalidateAll();
+		const a = articles.find(x => x.id === id);
+		if (!a) return;
+		a.isFavorite = !isFavorite;
+		try { await patch(id, { isFavorite: !isFavorite }); invalidateAll(); }
+		catch { a.isFavorite = isFavorite; addToast('Failed to update', 'error'); }
 	}
 
 	async function archiveArticle(id: string) {
-		await fetch(`/api/articles/${id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ isArchived: true })
-		});
-		await invalidateAll();
+		const idx = articles.findIndex(x => x.id === id);
+		if (idx === -1) return;
+		const removed = articles[idx];
+		articles.splice(idx, 1);
+		try { await patch(id, { isArchived: true }); invalidateAll(); }
+		catch { articles.splice(idx, 0, removed); addToast('Failed to archive', 'error'); }
+	}
+
+	async function unarchiveArticle(id: string) {
+		const idx = articles.findIndex(x => x.id === id);
+		if (idx === -1) return;
+		const removed = articles[idx];
+		articles.splice(idx, 1);
+		try { await patch(id, { isArchived: false }); invalidateAll(); }
+		catch { articles.splice(idx, 0, removed); addToast('Failed to unarchive', 'error'); }
 	}
 
 	async function deleteArticle(id: string) {
-		if (!confirm('Delete this article?')) return;
-		await fetch(`/api/articles/${id}`, { method: 'DELETE' });
-		await invalidateAll();
+		const idx = articles.findIndex(x => x.id === id);
+		if (idx === -1) return;
+		const removed = articles[idx];
+		articles.splice(idx, 1);
+		let undone = false;
+		addToast('Article deleted', 'info', {
+			duration: 5500,
+			undoFn: () => {
+				undone = true;
+				articles.splice(idx, 0, removed);
+			}
+		});
+		await new Promise(r => setTimeout(r, 5600));
+		if (undone) return;
+		const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+		if (!res.ok) { articles.splice(idx, 0, removed); addToast('Failed to delete', 'error'); return; }
+		invalidateAll();
 	}
 
 	async function addTag(articleId: string) {
 		const name = tagInputValue.trim();
 		if (!name) return;
-		await fetch(`/api/articles/${articleId}/tags`, {
+		const res = await fetch(`/api/articles/${articleId}/tags`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name })
 		});
 		tagInputValue = '';
 		showTagInput = null;
-		await invalidateAll();
-	}
-
-	async function moveToCollection(articleId: string, collectionId: string | null) {
-		await fetch(`/api/articles/${articleId}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ collectionId })
-		});
-		await invalidateAll();
+		if (!res.ok) { addToast('Failed to add tag', 'error'); return; }
+		invalidateAll();
 	}
 
 	async function removeTag(articleId: string, tagId: string) {
-		await fetch(`/api/articles/${articleId}/tags/${tagId}`, { method: 'DELETE' });
-		await invalidateAll();
+		const a = articles.find(x => x.id === articleId);
+		if (!a) return;
+		const oldTags = [...a.tags];
+		a.tags = a.tags.filter(t => t.id !== tagId);
+		const res = await fetch(`/api/articles/${articleId}/tags/${tagId}`, { method: 'DELETE' });
+		if (!res.ok) { a.tags = oldTags; addToast('Failed to remove tag', 'error'); return; }
+		invalidateAll();
 	}
 
-	function navTo(params: Record<string, string | null>) {
-		const u = new URL(page.url);
-		for (const [k, v] of Object.entries(params)) {
-			if (v === null) u.searchParams.delete(k);
-			else u.searchParams.set(k, v);
-		}
-		goto(u.toString());
+	async function moveToCollection(articleId: string, collectionId: string | null) {
+		const a = articles.find(x => x.id === articleId);
+		if (!a) return;
+		const old = a.collectionId;
+		a.collectionId = collectionId;
+		try { await patch(articleId, { collectionId }); invalidateAll(); }
+		catch { a.collectionId = old; addToast('Failed to move', 'error'); }
+	}
+
+	async function createCollection() {
+		const name = newCollectionName.trim();
+		if (!name) return;
+		const res = await fetch('/api/collections', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, icon: newCollectionIcon })
+		});
+		if (!res.ok) { addToast('Failed to create collection', 'error'); return; }
+		newCollectionName = '';
+		newCollectionIcon = '📁';
+		showNewCollection = false;
+		invalidateAll();
 	}
 
 	const filterLabels: Record<string, string> = {
-		unread: 'Unread',
-		read: 'Read',
-		favorites: 'Favorites',
-		archive: 'Archive',
-		all: 'All'
+		unread: 'Unread', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
 	};
 </script>
 
@@ -244,8 +319,21 @@
 		{/if}
 
 		<div class="sidebar-footer">
+			<button class="nav-item" onclick={toggleDark} title={isDark ? 'Switch to light' : 'Switch to dark'}>
+				{#if isDark}
+					<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1M7.5 13v1M1 7.5h1M13 7.5h1M3.2 3.2l.7.7M11.1 11.1l.7.7M11.1 3.2l-.7.7M3.2 11.8l.7-.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+					Light mode
+				{:else}
+					<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M3 9A5.5 5.5 0 009.5 3c.28 0 .56.02.83.06A5.5 5.5 0 113 9z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+					Dark mode
+				{/if}
+			</button>
+			<a href="/settings" class="nav-item">
+				<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M7.5 9.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/><path d="M12.2 9.2l.8 1.4-1.4 1.4-1.4-.8a4.5 4.5 0 01-1.3.5L8.5 13h-2l-.4-1.3a4.5 4.5 0 01-1.3-.5l-1.4.8-1.4-1.4.8-1.4a4.5 4.5 0 01-.5-1.3L2 7.5v-1l1.3-.4a4.5 4.5 0 01.5-1.3l-.8-1.4 1.4-1.4 1.4.8a4.5 4.5 0 011.3-.5L7.5 2h1l.4 1.3a4.5 4.5 0 011.3.5l1.4-.8 1.4 1.4-.8 1.4a4.5 4.5 0 01.5 1.3L14 7.5v1l-1.3.4a4.5 4.5 0 01-.5 1.3z" stroke="currentColor" stroke-width="1.3"/></svg>
+				Settings
+			</a>
 			<a href="/auth/logout" class="nav-item">
-				<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M9 2H12.5C12.7761 2 13 2.22386 13 2.5V12.5C13 12.7761 12.7761 13 12.5 13H9M6 10.5L9 7.5M9 7.5L6 4.5M9 7.5H2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M9 2H12.5C12.7761 2 13 2.22386 13 2.5V12.5C13 12.7761 12.7761 13 12.5 13H9M6 10.5L9 7.5M9 7.5L6 4.5M9 7.5H2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
 				Sign out
 			</a>
 		</div>
@@ -270,9 +358,23 @@
 			{#if saveError}<p class="save-error">{saveError}</p>{/if}
 		</div>
 
+		<div class="search-wrap">
+			<svg width="13" height="13" viewBox="0 0 15 15" fill="none" class="search-icon"><path d="M10 6.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM9.36 10.07L12 12.71" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+			<input
+				class="search-input"
+				type="search"
+				placeholder="Search articles…"
+				value={searchValue}
+				oninput={(e) => onSearchInput((e.currentTarget as HTMLInputElement).value)}
+			/>
+			{#if searchValue}
+				<button class="search-clear" onclick={() => { searchValue = ''; navTo({ q: null, offset: null }); }}>×</button>
+			{/if}
+		</div>
+
 		<div class="list-header">
-			<h2>{filterLabels[data.filter] ?? 'Articles'}{data.activeTag ? ` · #${data.activeTag}` : ''}{data.activeCollection ? ` · ${data.collections.find(c => c.id === data.activeCollection)?.name}` : ''}</h2>
-			<span class="count">{data.articles.length}</span>
+			<h2>{filterLabels[data.filter] ?? 'Articles'}{data.activeTag ? ` · #${data.activeTag}` : ''}{data.activeCollection ? ` · ${data.collections.find(c => c.id === data.activeCollection)?.name}` : ''}{data.q ? ` · "${data.q}"` : ''}</h2>
+			<span class="count">{data.total}</span>
 		</div>
 
 		<div class="article-list">
@@ -282,8 +384,13 @@
 					<p class="empty-sub">Paste a URL above or press Cmd+V anywhere on this page</p>
 				</div>
 			{:else}
-				{#each data.articles as article (article.id)}
-					<article class="card" class:read={article.isRead}>
+			{#each articles as article (article.id)}
+					<article
+						class="card"
+						class:read={article.isRead}
+						onmouseenter={() => hoveredArticleId = article.id}
+						onmouseleave={() => { if (hoveredArticleId === article.id) hoveredArticleId = null; }}
+					>
 						<div class="card-meta">
 							{#if article.favicon}
 								<img src={article.favicon} alt="" class="favicon" width="13" height="13" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
@@ -339,7 +446,12 @@
 								<svg width="12" height="12" viewBox="0 0 15 15" fill={article.isFavorite ? 'currentColor' : 'none'}><path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
 								{article.isFavorite ? 'Saved' : 'Favorite'}
 							</button>
-							{#if !article.isArchived}
+							{#if data.filter === 'archive'}
+								<button class="act" onclick={() => unarchiveArticle(article.id)}>
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 9V6M6 7.5l1.5-1.5L9 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+									Unarchive
+								</button>
+							{:else}
 								<button class="act" onclick={() => archiveArticle(article.id)}>
 									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
 									Archive
@@ -363,11 +475,33 @@
 							</button>
 						</div>
 					</article>
-				{/each}
+			{/each}
+		{/if}
+	</div>
+
+	{#if data.total > articles.length + data.offset || data.offset > 0}
+		<div class="pagination">
+			{#if data.offset > 0}
+				<button class="page-btn" onclick={() => navTo({ offset: String(Math.max(0, data.offset - data.pageSize)) })}>
+					← Previous
+				</button>
+			{/if}
+			<span class="page-info">
+				{data.offset + 1}–{data.offset + articles.length} of {data.total}
+			</span>
+			{#if data.total > data.offset + articles.length}
+				<button class="page-btn" onclick={() => navTo({ offset: String(data.offset + data.pageSize) })}>
+					Next →
+				</button>
 			{/if}
 		</div>
-	</main>
+	{/if}
+</main>
 </div>
+
+{#if showShortcutHelp}
+	<ShortcutHelp onclose={() => showShortcutHelp = false} />
+{/if}
 
 <style>
 	.app {
@@ -587,8 +721,66 @@
 		max-width: 760px;
 	}
 
+	/* Search */
+	.search-wrap {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0 0.625rem;
+		margin-bottom: 0.625rem;
+		transition: border-color 0.15s;
+	}
+	.search-wrap:focus-within { border-color: var(--color-text); }
+	.search-icon { color: var(--color-subtle); flex-shrink: 0; }
+	.search-input {
+		flex: 1;
+		border: none;
+		background: transparent;
+		font-family: inherit;
+		font-size: 0.875rem;
+		color: var(--color-text);
+		padding: 0.5rem 0;
+	}
+	.search-input:focus { outline: none; }
+	.search-input::placeholder { color: var(--color-subtle); }
+	.search-clear {
+		background: none;
+		border: none;
+		color: var(--color-subtle);
+		font-size: 1rem;
+		cursor: pointer;
+		padding: 0;
+		line-height: 1;
+	}
+	.search-clear:hover { color: var(--color-text); }
+
+	/* Pagination */
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 1.25rem 0 0.5rem;
+	}
+	.page-btn {
+		font-size: 0.8125rem;
+		font-family: inherit;
+		padding: 0.35em 0.75em;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		color: var(--color-text);
+		transition: border-color 0.1s;
+	}
+	.page-btn:hover { border-color: var(--color-border-strong); }
+	.page-info { font-size: 0.8125rem; color: var(--color-muted); }
+
 	/* Save bar */
-	.save-bar { margin-bottom: 1.75rem; }
+	.save-bar { margin-bottom: 0.75rem; }
 
 	.save-wrap {
 		display: flex;
