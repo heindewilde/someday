@@ -23,11 +23,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		error(400, 'Only HTTP/HTTPS URLs are supported');
 	}
 
+	parsedUrl.search = '';
+	parsedUrl.hash = '';
+	const cleanUrl = parsedUrl.toString();
+
 	try {
-		const parsed = await parseArticle(url);
+		const parsed = await parseArticle(cleanUrl);
 		const [article] = await db
 			.insert(articles)
-			.values({ ...parsed, url, userId: locals.user.id })
+			.values({ ...parsed, url: cleanUrl, userId: locals.user.id })
 			.returning();
 		return json(article, { status: 201 });
 	} catch (e) {
