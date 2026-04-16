@@ -327,13 +327,23 @@
 
 						<div class="card-actions">
 							<button class="act" class:act-on={article.isRead} onclick={() => toggleRead(article.id, article.isRead ?? false)}>
-								{article.isRead ? 'Mark unread' : 'Mark read'}
+								{#if article.isRead}
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+									Unread
+								{:else}
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/></svg>
+									Read
+								{/if}
 							</button>
 							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleFavorite(article.id, article.isFavorite ?? false)}>
-								{article.isFavorite ? '★ Saved' : '☆ Favorite'}
+								<svg width="12" height="12" viewBox="0 0 15 15" fill={article.isFavorite ? 'currentColor' : 'none'}><path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+								{article.isFavorite ? 'Saved' : 'Favorite'}
 							</button>
 							{#if !article.isArchived}
-								<button class="act" onclick={() => archiveArticle(article.id)}>Archive</button>
+								<button class="act" onclick={() => archiveArticle(article.id)}>
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+									Archive
+								</button>
 							{/if}
 							{#if data.collections.length > 0}
 								<select
@@ -341,13 +351,16 @@
 									value={article.collectionId ?? ''}
 									onchange={(e) => moveToCollection(article.id, (e.currentTarget as HTMLSelectElement).value || null)}
 								>
-									<option value="">Move to…</option>
+									<option value="">📂 Move to…</option>
 									{#each data.collections as col}
 										<option value={col.id}>{col.icon} {col.name}</option>
 									{/each}
 								</select>
 							{/if}
-							<button class="act act-del" onclick={() => deleteArticle(article.id)}>Delete</button>
+							<button class="act act-del" onclick={() => deleteArticle(article.id)}>
+								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+								Delete
+							</button>
 						</div>
 					</article>
 				{/each}
@@ -827,6 +840,9 @@
 	}
 
 	.act {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
 		font-size: 0.75rem;
 		padding: 0.2em 0.6em;
 		background: none;
