@@ -98,8 +98,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		total = filtered.length;
 		const page = filtered.slice(offset, offset + PAGE_SIZE);
 
-		const allTags = await db.select().from(tags).where(eq(tags.userId, userId)).orderBy(tags.name);
-		const [allCollections, counts] = await Promise.all([getCollections(userId), getCounts(userId)]);
+		const [allTags, allCollections, counts] = await Promise.all([getTags(userId), getCollections(userId), getCounts(userId)]);
 
 		return {
 			articles: page.map((a) => ({ ...a, tags: tagMap[a.id as string] ?? [] })),
@@ -210,6 +209,20 @@ async function getCounts(userId: string) {
 			words: totalWords
 		}
 	};
+}
+
+async function getTags(userId: string) {
+	const [tagList, countRows] = await Promise.all([
+		db.select().from(tags).where(eq(tags.userId, userId)).orderBy(tags.name),
+		db
+			.select({ tagId: articleTags.tagId, count: sql<number>`count(*)` })
+			.from(articleTags)
+			.innerJoin(articles, eq(articleTags.articleId, articles.id))
+			.where(eq(articles.userId, userId))
+			.groupBy(articleTags.tagId)
+	]);
+	const countMap = Object.fromEntries(countRows.map((r) => [r.tagId, r.count]));
+	return tagList.map((t) => ({ ...t, articleCount: countMap[t.id] ?? 0 }));
 }
 
 async function getCollections(userId: string) {
