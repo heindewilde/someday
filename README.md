@@ -48,10 +48,16 @@ git clone https://github.com/heindewilde/someday.git
 cd someday
 npm install
 npm run build
-ORIGIN=http://localhost:3000 node build
+PORT=3000 ORIGIN=http://localhost:3000 node build
 ```
 
-The app starts on port 3000. Set `ORIGIN` to your public URL in production. Data is written to `./data/someday.db` by default.
+`PORT` and `ORIGIN` must match — `PORT` is what the server listens on, `ORIGIN` is the URL you open in your browser. To run on a different port, change both:
+
+```bash
+PORT=7777 ORIGIN=http://localhost:7777 node build
+```
+
+Data is written to `./data/someday.db` by default.
 
 ### Upgrading
 
