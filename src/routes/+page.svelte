@@ -402,7 +402,7 @@
 
 						<div class="card-body">
 							<div class="card-text">
-								<a href={article.url} target="_blank" rel="noopener" class="card-title">{article.title}</a>
+								<a href="/articles/{article.id}" class="card-title">{article.title}</a>
 								{#if article.description}
 									<p class="card-desc">{article.description}</p>
 								{/if}
@@ -469,6 +469,10 @@
 									{/each}
 								</select>
 							{/if}
+							<a class="act" href={article.url} target="_blank" rel="noopener">
+								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Original
+							</a>
 							<button class="act act-del" onclick={() => deleteArticle(article.id)}>
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 								Delete
