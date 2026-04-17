@@ -74,6 +74,12 @@
 				</svg>
 				Original
 			</a>
+			<button class="act" onclick={() => window.print()}>
+				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
+					<path d="M3.5 5V2.5h8V5M3.5 11.5H2a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v5a.5.5 0 01-.5.5h-1.5M3.5 9.5h8v3h-8v-3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+				</svg>
+				Save as PDF
+			</button>
 			<button class="act act-del" onclick={deleteArticle}>
 				<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 				Delete
@@ -259,5 +265,33 @@
 		color: var(--color-text);
 		text-decoration: underline;
 		text-underline-offset: 2px;
+	}
+
+	@media print {
+		.topbar { display: none; }
+
+		.reader {
+			max-width: 100%;
+			padding: 0;
+			margin: 0;
+		}
+
+		.page {
+			background: #fff;
+		}
+
+		.cover {
+			max-height: 280px;
+		}
+
+		:global(.prose a) {
+			color: inherit;
+			text-decoration: underline;
+		}
+
+		:global(.prose pre) {
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
 	}
 </style>
