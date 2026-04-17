@@ -191,13 +191,25 @@ async function getCounts(userId: string) {
 
 	const readRows = rows.filter((r) => r.isRead);
 
+	const readContent = await db
+		.select({ content: articles.content })
+		.from(articles)
+		.where(and(eq(articles.userId, userId), eq(articles.isRead, true)));
+
+	const totalWords = readContent.reduce((sum, a) => {
+		if (!a.content) return sum;
+		const text = a.content.replace(/<[^>]+>/g, ' ');
+		return sum + text.trim().split(/\s+/).filter(Boolean).length;
+	}, 0);
+
 	return {
 		unread: rows.filter((r) => !r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
 		read: rows.filter((r) => r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
 		archive: rows.filter((r) => r.isArchived).reduce((s, r) => s + r.count, 0),
 		readingStats: {
 			articles: readRows.reduce((s, r) => s + r.count, 0),
-			minutes: readRows.reduce((s, r) => s + r.minutes, 0)
+			minutes: readRows.reduce((s, r) => s + r.minutes, 0),
+			words: totalWords
 		}
 	};
 }

@@ -40,10 +40,6 @@
 		return m > 0 ? `${h}h ${m}m` : `${h}h`;
 	}
 
-	function fmtWords(minutes: number) {
-		return (minutes * 238).toLocaleString();
-	}
-
 	// --- Theme ---
 	function toggleDark() {
 		isDark = !isDark;
@@ -530,7 +526,7 @@
 				<span class="stats-unit">articles read</span>
 			</div>
 			<div class="stats-row">
-				<span class="stats-value">{fmtWords(stats.minutes)}</span>
+				<span class="stats-value">{stats.words.toLocaleString()}</span>
 				<span class="stats-unit">words</span>
 			</div>
 			<div class="stats-row">
