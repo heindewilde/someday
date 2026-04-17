@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { db, sqlite } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const STOP_WORDS = new Set([
@@ -12,10 +12,8 @@ const STOP_WORDS = new Set([
 	'some','could','them','see','other','than','then','now','only','its','over','also',
 	'after','use','how','our','work','well','way','even','new','want','because','any',
 	'these','most','are','was','were','been','has','had','is','am','being','did',
-	'does','doing','should','may','might','must','shall','here','more','very','just',
-	'been','than','then','when','where','while','though','through','each','from',
-	'those','such','both','between','during','before','under','again','further',
-	'once','same','own','too','very','few','more','most','other','some','such',
+	'does','doing','should','may','might','must','shall','here','more','very','said',
+	'each','those','such','both','before','under','again','same','own','few','than',
 ]);
 
 function tokenize(text: string | null | undefined): string[] {
@@ -28,37 +26,57 @@ function tokenize(text: string | null | undefined): string[] {
 		.filter(w => w.length >= 4 && !STOP_WORDS.has(w));
 }
 
-function jaccard(a: Set<string>, b: Set<string>): number {
-	if (a.size === 0 || b.size === 0) return 0;
-	let intersection = 0;
-	for (const w of a) if (b.has(w)) intersection++;
-	return intersection / (a.size + b.size - intersection);
+function buildFTSQuery(title: string, content: string | null): string | null {
+	// Title words count 3x to bias toward topical similarity
+	const words = [
+		...tokenize(title), ...tokenize(title), ...tokenize(title),
+		...tokenize(content),
+	];
+	if (words.length === 0) return null;
+
+	// Rank by frequency, take top 50 unique terms
+	const freq: Record<string, number> = {};
+	for (const w of words) freq[w] = (freq[w] ?? 0) + 1;
+
+	const terms = Object.entries(freq)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 50)
+		.map(([w]) => `"${w.replace(/"/g, '')}"`)
+		.join(' OR ');
+
+	return terms || null;
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
 
 	const [target] = await db
-		.select({ id: articles.id, title: articles.title, description: articles.description, content: articles.content })
+		.select({ id: articles.id, title: articles.title, content: articles.content })
 		.from(articles)
 		.where(and(eq(articles.id, params.id), eq(articles.userId, locals.user.id)));
 
 	if (!target) error(404, 'Article not found');
 
-	// Build target word set — title weighted 3x, description 1x, first 500 chars of content 1x
-	const titleWords = tokenize(target.title);
-	const contentSnippet = target.content?.slice(0, 2000) ?? '';
-	const targetWords = new Set([
-		...titleWords, ...titleWords, ...titleWords,
-		...tokenize(target.description),
-		...tokenize(contentSnippet),
-	]);
+	const query = buildFTSQuery(target.title, target.content);
+	if (!query) return json([]);
 
-	const candidates = await db
+	const rows = sqlite.prepare(`
+		SELECT article_id
+		FROM articles_fts
+		WHERE articles_fts MATCH ?
+		  AND user_id = ?
+		  AND article_id != ?
+		ORDER BY rank
+		LIMIT 5
+	`).all(query, locals.user.id, params.id) as { article_id: string }[];
+
+	if (rows.length === 0) return json([]);
+
+	const ids = rows.map(r => r.article_id);
+	const results = await db
 		.select({
 			id: articles.id,
 			title: articles.title,
-			description: articles.description,
 			url: articles.url,
 			siteName: articles.siteName,
 			favicon: articles.favicon,
@@ -66,19 +84,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			isRead: articles.isRead,
 		})
 		.from(articles)
-		.where(and(eq(articles.userId, locals.user.id), ne(articles.id, params.id)));
+		.where(inArray(articles.id, ids));
 
-	const scored = candidates
-		.map(a => {
-			const words = new Set([
-				...tokenize(a.title), ...tokenize(a.title), ...tokenize(a.title),
-				...tokenize(a.description),
-			]);
-			return { ...a, score: jaccard(targetWords, words) };
-		})
-		.filter(a => a.score > 0)
-		.sort((a, b) => b.score - a.score)
-		.slice(0, 5);
-
-	return json(scored.map(({ score: _, ...a }) => a));
+	// Preserve FTS rank order
+	const byId = Object.fromEntries(results.map(a => [a.id, a]));
+	return json(ids.map(id => byId[id]).filter(Boolean));
 };

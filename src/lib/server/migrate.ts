@@ -76,6 +76,46 @@ export function migrate() {
 		)
 	`);
 
+	// Full-text search index
+	db.run(sql`
+		CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
+			article_id UNINDEXED,
+			user_id UNINDEXED,
+			title,
+			body
+		)
+	`);
+
+	// Populate index for any articles not yet indexed
+	db.run(sql`
+		INSERT INTO articles_fts(article_id, user_id, title, body)
+		SELECT id, user_id, title, COALESCE(content, '')
+		FROM articles
+		WHERE id NOT IN (SELECT article_id FROM articles_fts)
+	`);
+
+	// Keep index in sync via triggers
+	db.run(sql`
+		CREATE TRIGGER IF NOT EXISTS articles_fts_ai AFTER INSERT ON articles BEGIN
+			INSERT INTO articles_fts(article_id, user_id, title, body)
+			VALUES (new.id, new.user_id, new.title, COALESCE(new.content, ''));
+		END
+	`);
+
+	db.run(sql`
+		CREATE TRIGGER IF NOT EXISTS articles_fts_ad AFTER DELETE ON articles BEGIN
+			DELETE FROM articles_fts WHERE article_id = old.id;
+		END
+	`);
+
+	db.run(sql`
+		CREATE TRIGGER IF NOT EXISTS articles_fts_au AFTER UPDATE ON articles BEGIN
+			DELETE FROM articles_fts WHERE article_id = old.id;
+			INSERT INTO articles_fts(article_id, user_id, title, body)
+			VALUES (new.id, new.user_id, new.title, COALESCE(new.content, ''));
+		END
+	`);
+
 	// Migrations for existing databases
 	try {
 		// Migrate old single-collection data to the junction table
