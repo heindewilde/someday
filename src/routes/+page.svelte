@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { goto } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
@@ -23,6 +23,8 @@
 	let newCollectionName = $state('');
 	let newCollectionIcon = $state('📁');
 	let hoveredArticleId = $state<string | null>(null);
+	let keyboardArticleId = $state<string | null>(null);
+	const activeArticleId = $derived(hoveredArticleId ?? keyboardArticleId);
 	let showShortcutHelp = $state(false);
 	let isDark = $state(false);
 	let searchValue = $state(data.q ?? '');
@@ -95,27 +97,81 @@
 		searchTimer = setTimeout(() => navTo({ q: value || null, offset: null }), 300);
 	}
 
-	// --- Paste shortcut ---
+	// --- Keyboard shortcuts ---
+	async function scrollToArticle(id: string) {
+		await tick();
+		document.querySelector(`[data-article-id="${id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
-		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || (target as HTMLElement).isContentEditable;
+		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
 
+		// Cmd/Ctrl+V: paste URL to save
 		if (!isEditing && (e.metaKey || e.ctrlKey) && e.key === 'v') {
 			e.preventDefault();
 			navigator.clipboard.readText().then((text) => {
 				const trimmed = text.trim();
 				if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) saveUrl(trimmed);
 			});
+			return;
 		}
-		if (e.key === 'Escape') { showShortcutHelp = false; return; }
-		if (!isEditing && e.key === '?') { e.preventDefault(); showShortcutHelp = true; return; }
-		if (!isEditing && hoveredArticleId) {
-			const a = articles.find(x => x.id === hoveredArticleId);
+
+		// Escape: universal dismiss
+		if (e.key === 'Escape') {
+			if (showShortcutHelp) { showShortcutHelp = false; return; }
+			if (showStats) { showStats = false; return; }
+			if (showCollectionPicker) { showCollectionPicker = null; return; }
+			if (keyboardArticleId) { keyboardArticleId = null; return; }
+			if (searchValue) { searchValue = ''; navTo({ q: null, offset: null }); return; }
+			if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+			return;
+		}
+
+		if (isEditing) return;
+
+		// ? — show shortcut help
+		if (e.key === '?') { e.preventDefault(); showShortcutHelp = true; return; }
+
+		// / — focus search
+		if (e.key === '/') { e.preventDefault(); document.querySelector<HTMLInputElement>('.search-input')?.focus(); return; }
+
+		// n — focus save bar
+		if (e.key === 'n') { e.preventDefault(); document.querySelector<HTMLInputElement>('.save-input')?.focus(); return; }
+
+		// 1–4 — switch filter
+		if (e.key === '1') { e.preventDefault(); navTo({ filter: 'unread', tag: null, collection: null, offset: null }); return; }
+		if (e.key === '2') { e.preventDefault(); navTo({ filter: 'read', tag: null, collection: null, offset: null }); return; }
+		if (e.key === '3') { e.preventDefault(); navTo({ filter: 'favorites', tag: null, collection: null, offset: null }); return; }
+		if (e.key === '4') { e.preventDefault(); navTo({ filter: 'archive', tag: null, collection: null, offset: null }); return; }
+
+		// j / ↓ — next article
+		if (e.key === 'j' || e.key === 'ArrowDown') {
+			e.preventDefault();
+			const idx = articles.findIndex(a => a.id === activeArticleId);
+			const next = idx < 0 ? articles[0] : (articles[idx + 1] ?? articles[idx]);
+			if (next) { keyboardArticleId = next.id; scrollToArticle(next.id); }
+			return;
+		}
+
+		// k / ↑ — previous article
+		if (e.key === 'k' || e.key === 'ArrowUp') {
+			e.preventDefault();
+			const idx = articles.findIndex(a => a.id === activeArticleId);
+			const prev = idx <= 0 ? articles[0] : articles[idx - 1];
+			if (prev) { keyboardArticleId = prev.id; scrollToArticle(prev.id); }
+			return;
+		}
+
+		// Article shortcuts — require an active article
+		if (activeArticleId) {
+			const a = articles.find(x => x.id === activeArticleId);
 			if (!a) return;
-			if (e.key === 'r') { e.preventDefault(); toggleRead(a.id, a.isRead ?? false); }
-			if (e.key === 'f') { e.preventDefault(); toggleFavorite(a.id, a.isFavorite ?? false); }
-			if (e.key === 'e') { e.preventDefault(); archiveArticle(a.id); }
-			if (e.key === 'Delete') { e.preventDefault(); deleteArticle(a.id); }
+			if (e.key === 'Enter' || e.key === 'o') { e.preventDefault(); goto(`/articles/${a.id}`); return; }
+			if (e.key === 'r') { e.preventDefault(); toggleRead(a.id, a.isRead ?? false); return; }
+			if (e.key === 'f') { e.preventDefault(); toggleFavorite(a.id, a.isFavorite ?? false); return; }
+			if (e.key === 'e') { e.preventDefault(); archiveArticle(a.id); return; }
+			if (e.key === 'd') { e.preventDefault(); deleteArticle(a.id); return; }
 		}
 	}
 
@@ -573,7 +629,9 @@
 					<article
 						class="card"
 						class:read={article.isRead}
-						onmouseenter={() => hoveredArticleId = article.id}
+						class:selected={activeArticleId === article.id}
+						data-article-id={article.id}
+						onmouseenter={() => { hoveredArticleId = article.id; keyboardArticleId = null; }}
 						onmouseleave={() => { if (hoveredArticleId === article.id) hoveredArticleId = null; }}
 					>
 						<div class="card-meta">
@@ -1149,7 +1207,8 @@
 		transition: border-color 0.15s;
 	}
 
-	.card:hover {
+	.card:hover,
+	.card.selected {
 		border-color: var(--color-border-strong);
 	}
 
@@ -1258,6 +1317,7 @@
 	}
 
 	.card:hover .tag-x,
+	.card.selected .tag-x,
 	.card:focus-within .tag-x { opacity: 1; }
 
 	.tag-x:hover { color: var(--color-text); }
@@ -1319,6 +1379,7 @@
 	}
 
 	.card:hover .tag-add,
+	.card.selected .tag-add,
 	.card:focus-within .tag-add { opacity: 1; }
 
 	.tag-add:hover { color: var(--color-text); }
