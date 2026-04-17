@@ -2,17 +2,17 @@
 
 The free, open source, lightweight read-it-later app. Save articles, tag them, read them whenever.
 
-**[Live demo](https://library.heindewilde.com)** · [Report an issue](https://github.com/heindewilde/someday/issues)
-
 ---
 
 ## Self-hosting
 
-Someday is a single Docker container + a single SQLite file. No database server, no Redis, no external services.
+Someday is a single Docker container with a single SQLite file. No database server, no Redis, no external services required.
 
-### Option 1 — Docker Compose (recommended)
+### Requirements
 
-**Requirements:** Docker
+- Docker, **or** Node.js 20+
+
+### Docker Compose (recommended)
 
 ```bash
 git clone https://github.com/heindewilde/someday.git
@@ -20,34 +20,28 @@ cd someday
 cp .env.example .env
 ```
 
-Edit `.env` and set `ORIGIN` to the URL you'll access the app from:
+Edit `.env` — set `ORIGIN` to the URL you'll serve the app from:
 
 ```env
-ORIGIN=https://library.yourdomain.com
+ORIGIN=https://someday.yourdomain.com
 ```
 
-Then start it:
+Start it:
 
 ```bash
 docker compose up -d
 ```
 
-The app runs on port 3000 by default. To use a different port:
+The app runs on port 3000 by default. To use a different port set `PORT=8080` in `.env`.
 
-```bash
-PORT=8080 docker compose up -d
-```
+Your data is stored in a Docker named volume (`someday-data`) and persists across restarts and upgrades.
 
-Your data lives in a Docker volume (`someday-data`). It persists across restarts and upgrades.
-
-### Option 2 — Run directly with Node
-
-**Requirements:** Node.js 20+
+### Without Docker
 
 ```bash
 git clone https://github.com/heindewilde/someday.git
 cd someday
-cp .env.example .env
+cp .env.example .env   # edit ORIGIN
 npm install
 npm run build
 node build
@@ -64,40 +58,9 @@ Data is untouched during upgrades.
 
 ---
 
-## Deploying to a server
+## Reverse proxy
 
-### Fly.io (free tier)
-
-```bash
-fly launch        # follow prompts, choose a small shared-cpu VM
-fly volumes create someday_data --size 1
-```
-
-Add to `fly.toml`:
-```toml
-[mounts]
-  source = "someday_data"
-  destination = "/app/data"
-```
-
-```bash
-fly deploy
-fly secrets set ORIGIN=https://your-app.fly.dev
-```
-
-### Any VPS (Hetzner, DigitalOcean, etc.)
-
-1. Install Docker on the server
-2. Clone the repo and follow the Docker Compose instructions above
-3. Point your domain at the server IP with an A record
-4. Use [Caddy](https://caddyserver.com) or nginx as a reverse proxy for HTTPS
-
-Example Caddy config:
-```
-library.yourdomain.com {
-    reverse_proxy localhost:3000
-}
-```
+If you're running Someday behind a reverse proxy (nginx, Caddy, Traefik, etc.), point it at port 3000 and make sure it passes the `Host` and `X-Forwarded-*` headers. Set `ORIGIN` to your public URL.
 
 ---
 
@@ -105,8 +68,8 @@ library.yourdomain.com {
 
 | Variable | Default | Description |
 |---|---|---|
-| `DB_PATH` | `./data/someday.db` | Path to SQLite database |
-| `ORIGIN` | `http://localhost:3000` | Public URL of your instance |
+| `DB_PATH` | `./data/someday.db` | Path to the SQLite database file |
+| `ORIGIN` | `http://localhost:3000` | Public URL your instance is served from |
 | `PORT` | `3000` | Port to listen on |
 
 ---
