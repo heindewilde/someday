@@ -2,8 +2,6 @@
 
 The free, open source, lightweight read-it-later app.
 
-Save articles by pasting a URL. Tag them. Read them whenever.
-
 ## Features
 
 - Save articles by pasting a URL — or press Cmd+V anywhere on the page
