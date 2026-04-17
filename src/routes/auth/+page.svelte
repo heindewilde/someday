@@ -12,8 +12,7 @@
 <div class="auth-page">
 	<div class="auth-box">
 		<div class="auth-logo">
-			<span class="logo-mark">S</span>
-			<span class="logo-text">Someday</span>
+			<span class="logo-text">someday</span>
 		</div>
 
 		<h1>{mode === 'login' ? 'Welcome back' : 'Create account'}</h1>
@@ -91,30 +90,14 @@
 	}
 
 	.auth-logo {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		margin-bottom: 1.5rem;
 	}
 
-	.logo-mark {
-		width: 2rem;
-		height: 2rem;
-		background: var(--color-text);
-		color: #fff;
-		border-radius: var(--radius-sm);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 600;
-		font-size: 0.875rem;
-		letter-spacing: -0.01em;
-	}
-
 	.logo-text {
-		font-weight: 600;
-		font-size: 1rem;
-		letter-spacing: -0.02em;
+		font-size: 1.25rem;
+		font-weight: 700;
+		letter-spacing: -0.04em;
+		color: var(--color-text);
 	}
 
 	h1 {

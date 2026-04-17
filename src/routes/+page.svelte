@@ -341,8 +341,7 @@
 	<aside class="sidebar">
 		<div class="sidebar-header">
 			<div class="logo">
-				<span class="logo-mark">S</span>
-				<span class="logo-text">Someday</span>
+				<span class="logo-text">someday</span>
 			</div>
 		</div>
 
@@ -757,26 +756,13 @@
 	.logo {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.logo-mark {
-		width: 1.625rem;
-		height: 1.625rem;
-		background: var(--color-text);
-		color: #fff;
-		border-radius: 5px;
-		display: grid;
-		place-items: center;
-		font-weight: 600;
-		font-size: 0.75rem;
-		flex-shrink: 0;
 	}
 
 	.logo-text {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		letter-spacing: -0.02em;
+		font-size: 1.0625rem;
+		font-weight: 700;
+		letter-spacing: -0.04em;
+		color: var(--color-text);
 	}
 
 	.sidebar-nav {
