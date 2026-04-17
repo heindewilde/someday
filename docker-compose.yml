@@ -2,10 +2,19 @@ services:
   someday:
     build: .
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
-      - ./data:/app/data
+      - someday-data:/app/data
     environment:
       - DB_PATH=/app/data/someday.db
       - NODE_ENV=production
+      - ORIGIN=${ORIGIN:-http://localhost:3000}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  someday-data:
