@@ -35,6 +35,20 @@
 	let renameColName = $state('');
 	let renameColIcon = $state('');
 	let showEmojiPicker = $state<'new' | 'rename' | null>(null);
+	let hoveredTagSidebarId = $state<string | null>(null);
+	let showTagMenu = $state<string | null>(null);
+	let renamingTagId = $state<string | null>(null);
+	let renameTagName = $state('');
+
+	const tagSuggestions = $derived.by(() => {
+		if (!showTagInput || !tagInputValue.trim()) return [];
+		const article = articles.find(a => a.id === showTagInput);
+		const alreadyHas = new Set(article?.tags.map(t => t.id) ?? []);
+		const v = tagInputValue.toLowerCase().trim();
+		return data.tags
+			.filter(t => !alreadyHas.has(t.id) && t.name.toLowerCase().includes(v))
+			.slice(0, 6);
+	});
 
 	$effect(() => { isDark = document.documentElement.dataset.theme === 'dark'; });
 	$effect(() => { searchValue = data.q ?? ''; });
@@ -42,6 +56,7 @@
 		function close(e: MouseEvent) {
 			if (!(e.target as HTMLElement).closest('.col-picker-wrap')) showCollectionPicker = null;
 			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
+			if (!(e.target as HTMLElement).closest('.tag-menu-wrap')) showTagMenu = null;
 			if (!(e.target as HTMLElement).closest('.emoji-wrap')) showEmojiPicker = null;
 		}
 		window.addEventListener('mousedown', close);
@@ -262,6 +277,32 @@
 		invalidateAll();
 	}
 
+	async function renameTag(id: string) {
+		const name = renameTagName.trim();
+		if (!name) return;
+		const res = await fetch(`/api/tags/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name })
+		});
+		if (!res.ok) { addToast('Failed to rename tag', 'error'); return; }
+		renamingTagId = null;
+		invalidateAll();
+	}
+
+	async function deleteTag(id: string, count: number) {
+		if (count > 0 && !confirm(`Remove tag from ${count} article${count === 1 ? '' : 's'} and delete it?`)) return;
+		const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+		if (!res.ok) { addToast('Failed to delete tag', 'error'); return; }
+		if (data.activeTag) navTo({ tag: null });
+		invalidateAll();
+	}
+
+	async function selectTagSuggestion(articleId: string, name: string) {
+		tagInputValue = name;
+		await addTag(articleId);
+	}
+
 	const filterLabels: Record<string, string> = {
 		unread: 'Unread', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
 	};
@@ -413,15 +454,52 @@
 		{#if data.tags.length > 0}
 			<div class="sidebar-section">
 				<p class="section-label">Tags</p>
-				<div class="tag-cloud">
-					{#each data.tags as tag}
-						<button
-							class="tag-pill"
-							class:active={data.activeTag === tag.slug}
-							onclick={() => navTo({ tag: tag.slug, collection: null, filter: 'all' })}
-						>{tag.name}</button>
-					{/each}
-				</div>
+				{#each data.tags as tag}
+					<div
+						class="col-item-wrap"
+						onmouseenter={() => hoveredTagSidebarId = tag.id}
+						onmouseleave={() => { if (showTagMenu !== tag.id) hoveredTagSidebarId = null; }}
+					>
+						{#if renamingTagId === tag.id}
+							<div class="new-collection-form">
+								<input
+									class="col-name-input"
+									type="text"
+									bind:value={renameTagName}
+									onkeydown={(e) => { if (e.key === 'Enter') renameTag(tag.id); if (e.key === 'Escape') renamingTagId = null; }}
+								/>
+								<button class="col-save-btn" onclick={() => renameTag(tag.id)} disabled={!renameTagName.trim()}>Save</button>
+							</div>
+						{:else}
+							<button
+								class="nav-item"
+								class:active={data.activeTag === tag.slug}
+								onclick={() => navTo({ tag: tag.slug, collection: null })}
+							>
+								<span class="tag-dot"></span>
+								{tag.name}
+								{#if tag.articleCount > 0}
+									<span class="badge">{tag.articleCount}</span>
+								{/if}
+							</button>
+							{#if hoveredTagSidebarId === tag.id || showTagMenu === tag.id}
+								<div class="col-menu-wrap tag-menu-wrap">
+									<button
+										class="col-menu-btn"
+										onclick={(e) => { e.stopPropagation(); showTagMenu = showTagMenu === tag.id ? null : tag.id; }}
+										aria-label="Tag options"
+									>···</button>
+									{#if showTagMenu === tag.id}
+										<div class="col-menu-dropdown">
+											<button onclick={() => { renamingTagId = tag.id; renameTagName = tag.name; showTagMenu = null; hoveredTagSidebarId = null; }}>Rename</button>
+											<button class="danger" onclick={() => { showTagMenu = null; deleteTag(tag.id, tag.articleCount); }}>Delete</button>
+										</div>
+									{/if}
+								</div>
+							{/if}
+						{/if}
+					</div>
+				{/each}
 			</div>
 		{/if}
 
@@ -516,19 +594,31 @@
 								<div class="card-tags">
 									{#each article.tags as tag}
 										<span class="tag">
-											{tag.name}
+											<button class="tag-name" onclick={() => navTo({ tag: tag.slug, collection: null })}>{tag.name}</button>
 											<button class="tag-x" onclick={() => removeTag(article.id, tag.id)}>×</button>
 										</span>
 									{/each}
 									{#if showTagInput === article.id}
-										<input
-											class="tag-inp"
-											type="text"
-											placeholder="tag…"
-											bind:value={tagInputValue}
-											onkeydown={(e) => { if (e.key === 'Enter') addTag(article.id); if (e.key === 'Escape') { showTagInput = null; tagInputValue = ''; } }}
-											onblur={() => { if (!tagInputValue.trim()) showTagInput = null; }}
-										/>
+										<div class="tag-inp-wrap">
+											<input
+												class="tag-inp"
+												type="text"
+												placeholder="tag…"
+												bind:value={tagInputValue}
+												onkeydown={(e) => { if (e.key === 'Enter') addTag(article.id); if (e.key === 'Escape') { showTagInput = null; tagInputValue = ''; } }}
+												onblur={() => { setTimeout(() => { if (!tagInputValue.trim()) showTagInput = null; }, 150); }}
+											/>
+											{#if tagSuggestions.length > 0}
+												<div class="tag-autocomplete">
+													{#each tagSuggestions as t}
+														<button
+															class="tag-ac-opt"
+															onmousedown={(e) => { e.preventDefault(); selectTagSuggestion(article.id, t.name); }}
+														>{t.name}</button>
+													{/each}
+												</div>
+											{/if}
+										</div>
 									{:else}
 										<button class="tag-add" onclick={() => { showTagInput = article.id; tagInputValue = ''; }}>+ tag</button>
 									{/if}
@@ -863,29 +953,12 @@
 		margin: 0 0 0.125rem;
 	}
 
-	.tag-cloud {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		padding: 0.125rem 0.375rem 0.375rem;
-	}
-
-	.tag-pill {
-		font-size: 0.75rem;
-		padding: 0.2em 0.55em;
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: 99px;
-		cursor: pointer;
-		font-family: inherit;
-		color: var(--color-muted);
-		transition: all 0.1s;
-	}
-
-	.tag-pill:hover, .tag-pill.active {
-		background: var(--color-text);
-		border-color: var(--color-text);
-		color: #fff;
+	.tag-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--color-border-strong);
+		flex-shrink: 0;
 	}
 
 	.sidebar-footer {
@@ -1154,55 +1227,101 @@
 	.tag {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.2rem;
+		gap: 0.15rem;
 		font-size: 0.6875rem;
-		padding: 0.15em 0.5em;
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: 99px;
-		color: var(--color-muted);
+		color: var(--color-subtle);
 	}
+
+	.tag-name {
+		background: none;
+		border: none;
+		padding: 0;
+		font-size: inherit;
+		font-family: inherit;
+		color: inherit;
+		cursor: pointer;
+		line-height: inherit;
+	}
+
+	.tag-name:hover { color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px; }
 
 	.tag-x {
 		background: none;
 		border: none;
 		padding: 0;
 		cursor: pointer;
-		color: var(--color-subtle);
-		font-size: 0.8125rem;
+		color: var(--color-border-strong);
+		font-size: 0.75rem;
 		line-height: 1;
+		opacity: 0;
+		transition: opacity 0.15s, color 0.1s;
 	}
+
+	.card:hover .tag-x,
+	.card:focus-within .tag-x { opacity: 1; }
 
 	.tag-x:hover { color: var(--color-text); }
 
+	.tag-inp-wrap { position: relative; }
+
 	.tag-inp {
 		font-size: 0.6875rem;
-		border: 1px solid var(--color-text);
-		border-radius: 99px;
-		padding: 0.15em 0.6em;
+		border: none;
+		border-bottom: 1px solid var(--color-text);
+		padding: 0.1em 0.25em;
 		font-family: inherit;
 		width: 72px;
+		background: transparent;
+		color: var(--color-text);
 	}
 
 	.tag-inp:focus { outline: none; }
+
+	.tag-autocomplete {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		min-width: 120px;
+		z-index: 20;
+		padding: 0.25rem;
+	}
+
+	.tag-ac-opt {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.3em 0.5em;
+		border: none;
+		background: none;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-family: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.tag-ac-opt:hover { background: var(--color-bg); }
 
 	.tag-add {
 		font-size: 0.6875rem;
 		color: var(--color-subtle);
 		background: none;
-		border: 1px dashed var(--color-border);
-		border-radius: 99px;
-		padding: 0.15em 0.5em;
+		border: none;
+		padding: 0;
 		cursor: pointer;
 		font-family: inherit;
-		transition: all 0.1s;
+		opacity: 0;
+		transition: opacity 0.15s, color 0.1s;
 	}
 
-	.tag-add:hover {
-		color: var(--color-text);
-		border-color: var(--color-text);
-		border-style: solid;
-	}
+	.card:hover .tag-add,
+	.card:focus-within .tag-add { opacity: 1; }
+
+	.tag-add:hover { color: var(--color-text); }
 
 	.card-actions {
 		display: flex;
