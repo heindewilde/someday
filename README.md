@@ -1,6 +1,6 @@
 # Someday
 
-The free, open source, lightweight read-it-later app.
+The free, open source, lightweight read-it-later solution you've been looking for. Work in progress.
 
 ## Features
 
