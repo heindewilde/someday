@@ -11,9 +11,11 @@
 	<div
 		class="modal"
 		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => e.stopPropagation()}
 		role="dialog"
 		aria-modal="true"
 		aria-label="Keyboard shortcuts"
+		tabindex="-1"
 	>
 		<div class="modal-header">
 			<h2>Keyboard shortcuts</h2>

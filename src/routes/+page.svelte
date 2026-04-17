@@ -10,6 +10,7 @@
 
 	// --- Optimistic article state ---
 	type Article = typeof data.articles[0];
+	// svelte-ignore state_referenced_locally
 	let articles = $state<Article[]>([...data.articles]);
 	$effect(() => { articles = [...data.articles]; });
 
@@ -27,6 +28,7 @@
 	const activeArticleId = $derived(hoveredArticleId ?? keyboardArticleId);
 	let showShortcutHelp = $state(false);
 	let isDark = $state(false);
+	// svelte-ignore state_referenced_locally
 	let searchValue = $state(data.q ?? '');
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let showStats = $state(false);
@@ -417,6 +419,7 @@
 			{#each data.collections as col}
 				<div
 					class="col-item-wrap"
+					role="listitem"
 					onmouseenter={() => hoveredCollectionId = col.id}
 					onmouseleave={() => { if (showCollectionMenu !== col.id) hoveredCollectionId = null; }}
 				>
@@ -513,6 +516,7 @@
 				{#each data.tags as tag}
 					<div
 						class="col-item-wrap"
+						role="listitem"
 						onmouseenter={() => hoveredTagSidebarId = tag.id}
 						onmouseleave={() => { if (showTagMenu !== tag.id) hoveredTagSidebarId = null; }}
 					>
@@ -917,13 +921,6 @@
 	.sidebar-section {
 		border-top: 1px solid var(--color-border);
 		padding: 0.5rem;
-	}
-
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding-right: 0.375rem;
 	}
 
 	.new-col-btn {

@@ -3,6 +3,7 @@
 	import { addToast } from '$lib/toasts.svelte';
 
 	let { data } = $props();
+	// svelte-ignore state_referenced_locally
 	let article = $state({ ...data.article });
 
 	async function patch(body: Record<string, unknown>) {
