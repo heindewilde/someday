@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
+	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 
 	let { data } = $props();
 
@@ -33,6 +34,7 @@
 	let renamingCollectionId = $state<string | null>(null);
 	let renameColName = $state('');
 	let renameColIcon = $state('');
+	let showEmojiPicker = $state<'new' | 'rename' | null>(null);
 
 	$effect(() => { isDark = document.documentElement.dataset.theme === 'dark'; });
 	$effect(() => { searchValue = data.q ?? ''; });
@@ -40,6 +42,7 @@
 		function close(e: MouseEvent) {
 			if (!(e.target as HTMLElement).closest('.col-picker-wrap')) showCollectionPicker = null;
 			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
+			if (!(e.target as HTMLElement).closest('.emoji-wrap')) showEmojiPicker = null;
 		}
 		window.addEventListener('mousedown', close);
 		return () => window.removeEventListener('mousedown', close);
@@ -313,23 +316,7 @@
 		</nav>
 
 		<div class="sidebar-section">
-			<div class="section-header">
-				<p class="section-label">Collections</p>
-				<button class="section-add" onclick={() => { showNewCollection = !showNewCollection; newCollectionName = ''; }} title="New collection">+</button>
-			</div>
-			{#if showNewCollection}
-				<div class="new-collection-form">
-					<input class="col-icon-input" type="text" bind:value={newCollectionIcon} maxlength="2" />
-					<input
-						class="col-name-input"
-						type="text"
-						placeholder="Collection name"
-						bind:value={newCollectionName}
-						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') showNewCollection = false; }}
-					/>
-					<button class="col-save-btn" onclick={createCollection} disabled={!newCollectionName.trim()}>Add</button>
-				</div>
-			{/if}
+			<p class="section-label">Collections</p>
 			{#each data.collections as col}
 				<div
 					class="col-item-wrap"
@@ -338,7 +325,18 @@
 				>
 					{#if renamingCollectionId === col.id}
 						<div class="new-collection-form">
-							<input class="col-icon-input" type="text" bind:value={renameColIcon} maxlength="2" />
+							<div class="emoji-wrap">
+								<button
+									type="button"
+									class="col-icon-btn"
+									onclick={(e) => { e.stopPropagation(); showEmojiPicker = showEmojiPicker === 'rename' ? null : 'rename'; }}
+								>{renameColIcon}</button>
+								{#if showEmojiPicker === 'rename'}
+									<div class="emoji-popover">
+										<EmojiPicker onselect={(e) => { renameColIcon = e; showEmojiPicker = null; }} />
+									</div>
+								{/if}
+							</div>
 							<input
 								class="col-name-input"
 								type="text"
@@ -377,6 +375,39 @@
 					{/if}
 				</div>
 			{/each}
+
+			{#if showNewCollection}
+				<div class="new-collection-form">
+					<div class="emoji-wrap">
+						<button
+							type="button"
+							class="col-icon-btn"
+							onclick={(e) => { e.stopPropagation(); showEmojiPicker = showEmojiPicker === 'new' ? null : 'new'; }}
+						>{newCollectionIcon}</button>
+						{#if showEmojiPicker === 'new'}
+							<div class="emoji-popover">
+								<EmojiPicker onselect={(e) => { newCollectionIcon = e; showEmojiPicker = null; }} />
+							</div>
+						{/if}
+					</div>
+					<input
+						class="col-name-input"
+						type="text"
+						placeholder="Name…"
+						bind:value={newCollectionName}
+						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') { showNewCollection = false; showEmojiPicker = null; } }}
+					/>
+					<button class="col-save-btn" onclick={createCollection} disabled={!newCollectionName.trim()}>Add</button>
+				</div>
+			{:else}
+				<button
+					class="nav-item new-col-btn"
+					onclick={() => { showNewCollection = true; newCollectionName = ''; newCollectionIcon = '📁'; }}
+				>
+					<svg width="11" height="11" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v13M1 7.5h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+					New collection
+				</button>
+			{/if}
 		</div>
 
 		{#if data.tags.length > 0}
@@ -747,19 +778,12 @@
 		padding-right: 0.375rem;
 	}
 
-	.section-add {
-		background: none;
-		border: none;
+	.new-col-btn {
 		color: var(--color-subtle);
-		font-size: 1rem;
-		line-height: 1;
-		cursor: pointer;
-		padding: 0 0.25rem;
-		border-radius: 4px;
-		transition: color 0.1s;
+		font-size: 0.8125rem;
 	}
 
-	.section-add:hover { color: var(--color-text); }
+	.new-col-btn:hover { color: var(--color-text); }
 
 	.new-collection-form {
 		display: flex;
@@ -768,19 +792,37 @@
 		padding: 0.25rem 0.375rem 0.375rem;
 	}
 
-	.col-icon-input {
-		width: 2rem;
-		text-align: center;
-		border: 1px solid var(--color-border);
-		border-radius: 5px;
-		padding: 0.25rem;
-		font-size: 0.875rem;
-		font-family: inherit;
-		background: var(--color-bg);
+	.emoji-wrap {
+		position: relative;
 		flex-shrink: 0;
 	}
 
-	.col-icon-input:focus { outline: none; border-color: var(--color-text); }
+	.col-icon-btn {
+		width: 2rem;
+		height: 2rem;
+		border: 1px solid var(--color-border);
+		border-radius: 5px;
+		background: var(--color-bg);
+		cursor: pointer;
+		font-size: 0.9375rem;
+		display: grid;
+		place-items: center;
+		transition: border-color 0.1s;
+	}
+
+	.col-icon-btn:hover { border-color: var(--color-text); }
+
+	.emoji-popover {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-lg);
+		z-index: 60;
+		width: 200px;
+	}
 
 	.col-name-input {
 		flex: 1;
