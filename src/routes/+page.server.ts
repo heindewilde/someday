@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles, tags, articleTags, collections } from '$lib/server/schema';
-import { eq, and, desc, sql, like, or } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, isNotNull } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 30;
@@ -99,8 +99,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		const page = filtered.slice(offset, offset + PAGE_SIZE);
 
 		const allTags = await db.select().from(tags).where(eq(tags.userId, userId)).orderBy(tags.name);
-		const allCollections = await db.select().from(collections).where(eq(collections.userId, userId)).orderBy(collections.name);
-		const counts = await getCounts(userId);
+		const [allCollections, counts] = await Promise.all([getCollections(userId), getCounts(userId)]);
 
 		return {
 			articles: page.map((a) => ({ ...a, tags: tagMap[a.id as string] ?? [] })),
@@ -159,8 +158,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	const allTags = await db.select().from(tags).where(eq(tags.userId, userId)).orderBy(tags.name);
-	const allCollections = await db.select().from(collections).where(eq(collections.userId, userId)).orderBy(collections.name);
-	const counts = await getCounts(userId);
+	const [allCollections, counts] = await Promise.all([getCollections(userId), getCounts(userId)]);
 
 	return {
 		articles: rawArticles.map((a) => ({ ...a, tags: tagMap[a.id as string] ?? [] })),
@@ -212,4 +210,17 @@ async function getCounts(userId: string) {
 			words: totalWords
 		}
 	};
+}
+
+async function getCollections(userId: string) {
+	const [cols, countRows] = await Promise.all([
+		db.select().from(collections).where(eq(collections.userId, userId)).orderBy(collections.name),
+		db
+			.select({ collectionId: articles.collectionId, count: sql<number>`count(*)` })
+			.from(articles)
+			.where(and(eq(articles.userId, userId), isNotNull(articles.collectionId)))
+			.groupBy(articles.collectionId)
+	]);
+	const countMap = Object.fromEntries(countRows.map((r) => [r.collectionId as string, r.count]));
+	return cols.map((c) => ({ ...c, articleCount: countMap[c.id] ?? 0 }));
 }

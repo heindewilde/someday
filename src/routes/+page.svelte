@@ -27,9 +27,23 @@
 	let searchValue = $state(data.q ?? '');
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let showStats = $state(false);
+	let showCollectionPicker = $state<string | null>(null);
+	let hoveredCollectionId = $state<string | null>(null);
+	let showCollectionMenu = $state<string | null>(null);
+	let renamingCollectionId = $state<string | null>(null);
+	let renameColName = $state('');
+	let renameColIcon = $state('');
 
 	$effect(() => { isDark = document.documentElement.dataset.theme === 'dark'; });
 	$effect(() => { searchValue = data.q ?? ''; });
+	$effect(() => {
+		function close(e: MouseEvent) {
+			if (!(e.target as HTMLElement).closest('.col-picker-wrap')) showCollectionPicker = null;
+			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
+		}
+		window.addEventListener('mousedown', close);
+		return () => window.removeEventListener('mousedown', close);
+	});
 
 	const stats = $derived(data.counts.readingStats);
 
@@ -224,6 +238,27 @@
 		invalidateAll();
 	}
 
+	async function renameCollection(id: string) {
+		const name = renameColName.trim();
+		if (!name) return;
+		const res = await fetch(`/api/collections/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, icon: renameColIcon })
+		});
+		if (!res.ok) { addToast('Failed to rename collection', 'error'); return; }
+		renamingCollectionId = null;
+		invalidateAll();
+	}
+
+	async function deleteCollection(id: string, articleCount: number) {
+		if (articleCount > 0 && !confirm(`This collection contains ${articleCount} article${articleCount === 1 ? '' : 's'}. They won't be deleted. Remove the collection anyway?`)) return;
+		const res = await fetch(`/api/collections/${id}`, { method: 'DELETE' });
+		if (!res.ok) { addToast('Failed to delete collection', 'error'); return; }
+		if (data.activeCollection === id) navTo({ collection: null });
+		invalidateAll();
+	}
+
 	const filterLabels: Record<string, string> = {
 		unread: 'Unread', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
 	};
@@ -284,32 +319,63 @@
 			</div>
 			{#if showNewCollection}
 				<div class="new-collection-form">
-					<input
-						class="col-icon-input"
-						type="text"
-						bind:value={newCollectionIcon}
-						maxlength="2"
-					/>
+					<input class="col-icon-input" type="text" bind:value={newCollectionIcon} maxlength="2" />
 					<input
 						class="col-name-input"
 						type="text"
 						placeholder="Collection name"
 						bind:value={newCollectionName}
 						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') showNewCollection = false; }}
-						autofocus
 					/>
 					<button class="col-save-btn" onclick={createCollection} disabled={!newCollectionName.trim()}>Add</button>
 				</div>
 			{/if}
 			{#each data.collections as col}
-				<button
-					class="nav-item"
-					class:active={data.activeCollection === col.id}
-					onclick={() => navTo({ collection: col.id, tag: null, filter: 'all' })}
+				<div
+					class="col-item-wrap"
+					onmouseenter={() => hoveredCollectionId = col.id}
+					onmouseleave={() => { if (showCollectionMenu !== col.id) hoveredCollectionId = null; }}
 				>
-					<span>{col.icon}</span>
-					{col.name}
-				</button>
+					{#if renamingCollectionId === col.id}
+						<div class="new-collection-form">
+							<input class="col-icon-input" type="text" bind:value={renameColIcon} maxlength="2" />
+							<input
+								class="col-name-input"
+								type="text"
+								bind:value={renameColName}
+								onkeydown={(e) => { if (e.key === 'Enter') renameCollection(col.id); if (e.key === 'Escape') renamingCollectionId = null; }}
+							/>
+							<button class="col-save-btn" onclick={() => renameCollection(col.id)} disabled={!renameColName.trim()}>Save</button>
+						</div>
+					{:else}
+						<button
+							class="nav-item"
+							class:active={data.activeCollection === col.id}
+							onclick={() => navTo({ collection: col.id, tag: null })}
+						>
+							<span>{col.icon}</span>
+							{col.name}
+							{#if col.articleCount > 0}
+								<span class="badge">{col.articleCount}</span>
+							{/if}
+						</button>
+						{#if hoveredCollectionId === col.id || showCollectionMenu === col.id}
+							<div class="col-menu-wrap">
+								<button
+									class="col-menu-btn"
+									onclick={(e) => { e.stopPropagation(); showCollectionMenu = showCollectionMenu === col.id ? null : col.id; }}
+									aria-label="Collection options"
+								>···</button>
+								{#if showCollectionMenu === col.id}
+									<div class="col-menu-dropdown">
+										<button onclick={() => { renamingCollectionId = col.id; renameColName = col.name; renameColIcon = col.icon ?? '📁'; showCollectionMenu = null; hoveredCollectionId = null; }}>Rename</button>
+										<button class="danger" onclick={() => { showCollectionMenu = null; deleteCollection(col.id, col.articleCount); }}>Delete</button>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					{/if}
+				</div>
 			{/each}
 		</div>
 
@@ -468,16 +534,39 @@
 								</button>
 							{/if}
 							{#if data.collections.length > 0}
-								<select
-									class="act col-select"
-									value={article.collectionId ?? ''}
-									onchange={(e) => moveToCollection(article.id, (e.currentTarget as HTMLSelectElement).value || null)}
-								>
-									<option value="">📂 Move to…</option>
-									{#each data.collections as col}
-										<option value={col.id}>{col.icon} {col.name}</option>
-									{/each}
-								</select>
+								{@const currentCol = data.collections.find(c => c.id === article.collectionId)}
+								<div class="col-picker-wrap">
+									<button
+										class="act"
+										class:act-on={!!currentCol}
+										onclick={() => showCollectionPicker = showCollectionPicker === article.id ? null : article.id}
+									>
+										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M1 4.5A1.5 1.5 0 012.5 3h3.672a1.5 1.5 0 011.06.44l.829.828A1.5 1.5 0 009.12 4.8H12.5A1.5 1.5 0 0114 6.3V11.5A1.5 1.5 0 0112.5 13h-10A1.5 1.5 0 011 11.5V4.5z" stroke="currentColor" stroke-width="1.3"/></svg>
+										{currentCol ? `${currentCol.icon} ${currentCol.name}` : 'Collection'}
+									</button>
+									{#if showCollectionPicker === article.id}
+										<div class="col-picker-dropdown">
+											{#each data.collections as col}
+												<button
+													class="col-picker-opt"
+													class:active={article.collectionId === col.id}
+													onclick={() => { moveToCollection(article.id, article.collectionId === col.id ? null : col.id); showCollectionPicker = null; }}
+												>
+													<span>{col.icon} {col.name}</span>
+													{#if article.collectionId === col.id}
+														<svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+													{/if}
+												</button>
+											{/each}
+											{#if article.collectionId}
+												<div class="col-picker-sep"></div>
+												<button class="col-picker-opt col-picker-remove" onclick={() => { moveToCollection(article.id, null); showCollectionPicker = null; }}>
+													Remove from collection
+												</button>
+											{/if}
+										</div>
+									{/if}
+								</div>
 							{/if}
 							<a class="act" href={article.url} target="_blank" rel="noopener">
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1107,11 +1196,110 @@
 		color: #fff;
 	}
 
-	.col-select {
-		cursor: pointer;
-		appearance: none;
-		padding-right: 0.6em;
+	/* Collection sidebar item */
+	.col-item-wrap {
+		position: relative;
 	}
+
+	.col-menu-wrap {
+		position: absolute;
+		right: 0.375rem;
+		top: 50%;
+		transform: translateY(-50%);
+	}
+
+	.col-menu-btn {
+		display: grid;
+		place-items: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		border: none;
+		background: var(--color-bg);
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 0.9375rem;
+		color: var(--color-muted);
+		line-height: 1;
+		letter-spacing: 0.1em;
+	}
+
+	.col-menu-btn:hover { color: var(--color-text); }
+
+	.col-menu-dropdown {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 4px);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		min-width: 110px;
+		z-index: 30;
+		padding: 0.25rem;
+	}
+
+	.col-menu-dropdown button {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.35em 0.6em;
+		border: none;
+		background: none;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.col-menu-dropdown button:hover { background: var(--color-bg); }
+	.col-menu-dropdown button.danger { color: #dc2626; }
+	.col-menu-dropdown button.danger:hover { background: #fef2f2; }
+
+	/* Collection picker in card actions */
+	.col-picker-wrap { position: relative; }
+
+	.col-picker-dropdown {
+		position: absolute;
+		bottom: calc(100% + 4px);
+		left: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		min-width: 160px;
+		z-index: 20;
+		padding: 0.25rem;
+	}
+
+	.col-picker-opt {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		width: 100%;
+		text-align: left;
+		padding: 0.35em 0.6em;
+		border: none;
+		background: none;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.col-picker-opt:hover { background: var(--color-bg); }
+	.col-picker-opt.active { font-weight: 500; }
+
+	.col-picker-sep {
+		height: 1px;
+		background: var(--color-border);
+		margin: 0.25rem 0;
+	}
+
+	.col-picker-remove { color: var(--color-muted); }
+	.col-picker-remove:hover { color: #dc2626; background: #fef2f2; }
 
 	.act-del:hover {
 		background: #fef2f2;
