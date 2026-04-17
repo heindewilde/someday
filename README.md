@@ -6,46 +6,52 @@ The free, open source, lightweight read-it-later app. Save articles, tag them, r
 
 ## Self-hosting
 
-Someday is a single Docker container with a single SQLite file. No database server, no Redis, no external services required.
+Someday runs as a single process with a single SQLite file. No database server, no Redis, no external services.
 
-### Requirements
+### Option 1 — Docker Compose (recommended)
 
-- Docker, **or** Node.js 20+
-
-### Docker Compose (recommended)
+**Requirements:** Docker
 
 ```bash
 git clone https://github.com/heindewilde/someday.git
 cd someday
+```
+
+Copy the example config and set your public URL:
+
+```bash
 cp .env.example .env
 ```
 
-Edit `.env` — set `ORIGIN` to the URL you'll serve the app from:
+Open `.env` and set `ORIGIN` to the URL you'll access the app from (required in production):
 
 ```env
 ORIGIN=https://someday.yourdomain.com
 ```
 
-Start it:
+Start the app:
 
 ```bash
 docker compose up -d
 ```
 
-The app runs on port 3000 by default. To use a different port set `PORT=8080` in `.env`.
+The app is now running on port 3000. Your data is stored in a Docker named volume (`someday-data`) and persists across restarts and upgrades.
 
-Your data is stored in a Docker named volume (`someday-data`) and persists across restarts and upgrades.
+**To use a different port**, set `PORT=8080` in `.env` before starting.
 
-### Without Docker
+### Option 2 — Node.js
+
+**Requirements:** Node.js 20+
 
 ```bash
 git clone https://github.com/heindewilde/someday.git
 cd someday
-cp .env.example .env   # edit ORIGIN
 npm install
 npm run build
-node build
+ORIGIN=http://localhost:3000 node build
 ```
+
+The app starts on port 3000. Set `ORIGIN` to your public URL in production. Data is written to `./data/someday.db` by default.
 
 ### Upgrading
 
@@ -60,17 +66,27 @@ Data is untouched during upgrades.
 
 ## Reverse proxy
 
-If you're running Someday behind a reverse proxy (nginx, Caddy, Traefik, etc.), point it at port 3000 and make sure it passes the `Host` and `X-Forwarded-*` headers. Set `ORIGIN` to your public URL.
+Point nginx, Caddy, or Traefik at port 3000. Make sure it forwards `Host` and `X-Forwarded-*` headers, and set `ORIGIN` to your public URL.
+
+Example Caddy config:
+
+```
+someday.yourdomain.com {
+    reverse_proxy localhost:3000
+}
+```
 
 ---
 
 ## Configuration
 
+All config is set via environment variables (or in `.env`):
+
 | Variable | Default | Description |
 |---|---|---|
-| `DB_PATH` | `./data/someday.db` | Path to the SQLite database file |
-| `ORIGIN` | `http://localhost:3000` | Public URL your instance is served from |
+| `ORIGIN` | `http://localhost:3000` | Public URL the app is served from. Required in production. |
 | `PORT` | `3000` | Port to listen on |
+| `DB_PATH` | `./data/someday.db` | Path to the SQLite database file |
 
 ---
 
