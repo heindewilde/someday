@@ -26,9 +26,23 @@
 	let isDark = $state(false);
 	let searchValue = $state(data.q ?? '');
 	let searchTimer: ReturnType<typeof setTimeout>;
+	let showStats = $state(false);
 
 	$effect(() => { isDark = document.documentElement.dataset.theme === 'dark'; });
 	$effect(() => { searchValue = data.q ?? ''; });
+
+	const stats = $derived(data.counts.readingStats);
+
+	function fmtTime(minutes: number) {
+		if (minutes < 60) return `${minutes} min`;
+		const h = Math.floor(minutes / 60);
+		const m = minutes % 60;
+		return m > 0 ? `${h}h ${m}m` : `${h}h`;
+	}
+
+	function fmtWords(minutes: number) {
+		return (minutes * 238).toLocaleString();
+	}
 
 	// --- Theme ---
 	function toggleDark() {
@@ -501,6 +515,42 @@
 		</div>
 	{/if}
 </main>
+</div>
+
+{#if showStats}
+	<button class="stats-backdrop" onclick={() => showStats = false} aria-label="Close"></button>
+{/if}
+
+<div class="stats-anchor">
+	{#if showStats}
+		<div class="stats-popover">
+			<p class="stats-label">Reading stats</p>
+			<div class="stats-row">
+				<span class="stats-value">{stats.articles.toLocaleString()}</span>
+				<span class="stats-unit">articles read</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-value">{fmtWords(stats.minutes)}</span>
+				<span class="stats-unit">words</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-value">{fmtTime(stats.minutes)}</span>
+				<span class="stats-unit">reading time</span>
+			</div>
+		</div>
+	{/if}
+	<button
+		class="stats-btn"
+		onclick={() => showStats = !showStats}
+		title="Reading stats"
+		aria-label="Reading stats"
+	>
+		<svg width="13" height="13" viewBox="0 0 15 15" fill="none">
+			<rect x="1" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>
+			<rect x="6" y="5" width="3" height="9" rx="0.5" fill="currentColor"/>
+			<rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+		</svg>
+	</button>
 </div>
 
 {#if showShortcutHelp}
@@ -1071,5 +1121,83 @@
 		background: #fef2f2;
 		border-color: #fca5a5;
 		color: #dc2626;
+	}
+
+	/* ── Stats ── */
+	.stats-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 40;
+		background: transparent;
+		border: none;
+		cursor: default;
+	}
+
+	.stats-anchor {
+		position: fixed;
+		bottom: 1.25rem;
+		left: 1.25rem;
+		z-index: 50;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+
+	.stats-btn {
+		display: grid;
+		place-items: center;
+		width: 1.875rem;
+		height: 1.875rem;
+		border-radius: 50%;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		color: var(--color-subtle);
+		cursor: pointer;
+		opacity: 0.5;
+		transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+	}
+
+	.stats-btn:hover {
+		opacity: 1;
+		border-color: var(--color-border-strong);
+		color: var(--color-muted);
+	}
+
+	.stats-popover {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		padding: 0.875rem 1rem;
+		min-width: 160px;
+	}
+
+	.stats-label {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-subtle);
+		margin: 0 0 0.625rem;
+	}
+
+	.stats-row {
+		display: flex;
+		align-items: baseline;
+		gap: 0.375rem;
+		padding: 0.2rem 0;
+	}
+
+	.stats-value {
+		font-size: 1rem;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		color: var(--color-text);
+	}
+
+	.stats-unit {
+		font-size: 0.75rem;
+		color: var(--color-muted);
 	}
 </style>
