@@ -182,15 +182,22 @@ async function getCounts(userId: string) {
 		.select({
 			isRead: articles.isRead,
 			isArchived: articles.isArchived,
-			count: sql<number>`count(*)`
+			count: sql<number>`count(*)`,
+			minutes: sql<number>`coalesce(sum(reading_time_minutes), 0)`
 		})
 		.from(articles)
 		.where(eq(articles.userId, userId))
 		.groupBy(articles.isRead, articles.isArchived);
 
+	const readRows = rows.filter((r) => r.isRead);
+
 	return {
 		unread: rows.filter((r) => !r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
 		read: rows.filter((r) => r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
-		archive: rows.filter((r) => r.isArchived).reduce((s, r) => s + r.count, 0)
+		archive: rows.filter((r) => r.isArchived).reduce((s, r) => s + r.count, 0),
+		readingStats: {
+			articles: readRows.reduce((s, r) => s + r.count, 0),
+			minutes: readRows.reduce((s, r) => s + r.minutes, 0)
+		}
 	};
 }
