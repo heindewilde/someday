@@ -692,36 +692,44 @@
 	<button class="stats-backdrop" onclick={() => showStats = false} aria-label="Close"></button>
 {/if}
 
-<div class="stats-anchor">
-	{#if showStats}
-		<div class="stats-popover">
-			<p class="stats-label">Reading stats</p>
-			<div class="stats-row">
-				<span class="stats-value">{stats.articles.toLocaleString()}</span>
-				<span class="stats-unit">articles read</span>
+<div class="corner-btns">
+	<div class="stats-anchor">
+		{#if showStats}
+			<div class="stats-popover">
+				<p class="stats-label">Reading stats</p>
+				<div class="stats-row">
+					<span class="stats-value">{stats.articles.toLocaleString()}</span>
+					<span class="stats-unit">articles read</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-value">{stats.words.toLocaleString()}</span>
+					<span class="stats-unit">words</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-value">{fmtTime(stats.minutes)}</span>
+					<span class="stats-unit">reading time</span>
+				</div>
 			</div>
-			<div class="stats-row">
-				<span class="stats-value">{stats.words.toLocaleString()}</span>
-				<span class="stats-unit">words</span>
-			</div>
-			<div class="stats-row">
-				<span class="stats-value">{fmtTime(stats.minutes)}</span>
-				<span class="stats-unit">reading time</span>
-			</div>
-		</div>
-	{/if}
+		{/if}
+		<button
+			class="corner-btn"
+			onclick={() => showStats = !showStats}
+			title="Reading stats"
+			aria-label="Reading stats"
+		>
+			<svg width="13" height="13" viewBox="0 0 15 15" fill="none">
+				<rect x="1" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>
+				<rect x="6" y="5" width="3" height="9" rx="0.5" fill="currentColor"/>
+				<rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
+			</svg>
+		</button>
+	</div>
 	<button
-		class="stats-btn"
-		onclick={() => showStats = !showStats}
-		title="Reading stats"
-		aria-label="Reading stats"
-	>
-		<svg width="13" height="13" viewBox="0 0 15 15" fill="none">
-			<rect x="1" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>
-			<rect x="6" y="5" width="3" height="9" rx="0.5" fill="currentColor"/>
-			<rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
-		</svg>
-	</button>
+		class="corner-btn"
+		onclick={() => showShortcutHelp = true}
+		title="Keyboard shortcuts"
+		aria-label="Keyboard shortcuts"
+	>?</button>
 </div>
 
 {#if showShortcutHelp}
@@ -1068,9 +1076,16 @@
 		transition: border-color 0.15s;
 	}
 
-	.card:hover,
-	.card.selected {
+	.card:hover {
 		border-color: var(--color-border-strong);
+		background: var(--color-bg);
+	}
+
+	.card.selected {
+		border-color: var(--color-text);
+		background: var(--color-bg);
+		outline: 2px solid var(--color-text);
+		outline-offset: -1px;
 	}
 
 	.card.read {
@@ -1393,18 +1408,23 @@
 		cursor: default;
 	}
 
-	.stats-anchor {
+	.corner-btns {
 		position: fixed;
 		bottom: 1.25rem;
-		left: 1.25rem;
+		right: 1.25rem;
 		z-index: 50;
 		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.5rem;
+		align-items: center;
+		gap: 0.375rem;
 	}
 
-	.stats-btn {
+	.stats-anchor {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+
+	.corner-btn {
 		display: grid;
 		place-items: center;
 		width: 1.875rem;
@@ -1414,17 +1434,23 @@
 		background: var(--color-surface);
 		color: var(--color-subtle);
 		cursor: pointer;
-		opacity: 0.5;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		font-weight: 500;
+		opacity: 0.55;
 		transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 	}
 
-	.stats-btn:hover {
+	.corner-btn:hover {
 		opacity: 1;
 		border-color: var(--color-border-strong);
 		color: var(--color-muted);
 	}
 
 	.stats-popover {
+		position: absolute;
+		bottom: calc(100% + 0.5rem);
+		right: 0;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
