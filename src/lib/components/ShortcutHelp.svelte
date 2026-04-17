@@ -49,6 +49,7 @@
 			<div class="group">
 				<p class="group-label">Global</p>
 				<dl class="shortcuts">
+					<div class="row"><dt><kbd>Cmd</kbd>+<kbd>V</kbd></dt><dd>Paste URL to save</dd></div>
 					<div class="row"><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
 				</dl>
 			</div>

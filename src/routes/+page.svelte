@@ -96,8 +96,14 @@
 		const target = e.target as HTMLElement;
 		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
 
-		if (false) {
-			// placeholder to preserve block structure
+		// Cmd/Ctrl+V: paste URL to save
+		if (!isEditing && (e.metaKey || e.ctrlKey) && e.key === 'v') {
+			e.preventDefault();
+			navigator.clipboard.readText().then((text) => {
+				const trimmed = text.trim();
+				if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) saveUrl(trimmed);
+			});
+			return;
 		}
 
 		// Escape: universal dismiss
