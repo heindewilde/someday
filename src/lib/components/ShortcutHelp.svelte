@@ -19,15 +19,41 @@
 			<h2>Keyboard shortcuts</h2>
 			<button class="close-btn" onclick={onclose} aria-label="Close">×</button>
 		</div>
-		<dl class="shortcuts">
-			<div class="row"><dt><kbd>r</kbd></dt><dd>Toggle read / unread</dd></div>
-			<div class="row"><dt><kbd>f</kbd></dt><dd>Toggle favorite</dd></div>
-			<div class="row"><dt><kbd>e</kbd></dt><dd>Archive</dd></div>
-			<div class="row"><dt><kbd>Del</kbd></dt><dd>Delete</dd></div>
-			<div class="row"><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
-			<div class="row"><dt><kbd>Cmd+V</kbd></dt><dd>Paste URL to save</dd></div>
-		</dl>
-		<p class="hint">Hover over an article, then press a shortcut.</p>
+
+		<div class="groups">
+			<div class="group">
+				<p class="group-label">Navigation</p>
+				<dl class="shortcuts">
+					<div class="row"><dt><kbd>j</kbd><kbd>k</kbd></dt><dd>Next / previous article</dd></div>
+					<div class="row"><dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Next / previous article</dd></div>
+					<div class="row"><dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Unread / Read / Favorites / Archive</dd></div>
+					<div class="row"><dt><kbd>/</kbd></dt><dd>Focus search</dd></div>
+					<div class="row"><dt><kbd>n</kbd></dt><dd>Focus save bar</dd></div>
+					<div class="row"><dt><kbd>Esc</kbd></dt><dd>Dismiss / clear / deselect</dd></div>
+				</dl>
+			</div>
+
+			<div class="group">
+				<p class="group-label">Article</p>
+				<dl class="shortcuts">
+					<div class="row"><dt><kbd>Enter</kbd></dt><dd>Open reader view</dd></div>
+					<div class="row"><dt><kbd>r</kbd></dt><dd>Toggle read / unread</dd></div>
+					<div class="row"><dt><kbd>f</kbd></dt><dd>Toggle favorite</dd></div>
+					<div class="row"><dt><kbd>e</kbd></dt><dd>Archive</dd></div>
+					<div class="row"><dt><kbd>d</kbd></dt><dd>Delete</dd></div>
+				</dl>
+			</div>
+
+			<div class="group">
+				<p class="group-label">Global</p>
+				<dl class="shortcuts">
+					<div class="row"><dt><kbd>Cmd</kbd>+<kbd>V</kbd></dt><dd>Paste URL to save</dd></div>
+					<div class="row"><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
+				</dl>
+			</div>
+		</div>
+
+		<p class="hint">Hover an article or navigate with j / k, then press a shortcut.</p>
 	</div>
 </div>
 
@@ -46,7 +72,8 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-xl);
 		padding: 1.5rem;
-		min-width: 300px;
+		width: 420px;
+		max-width: calc(100vw - 2rem);
 		box-shadow: var(--shadow-lg);
 	}
 
@@ -54,7 +81,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: 1rem;
+		margin-bottom: 1.25rem;
 	}
 
 	h2 {
@@ -76,10 +103,25 @@
 
 	.close-btn:hover { color: var(--color-text); }
 
+	.groups {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+
+	.group-label {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-subtle);
+		margin: 0 0 0.5rem;
+	}
+
 	.shortcuts {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.375rem;
 		margin: 0;
 	}
 
@@ -90,12 +132,16 @@
 	}
 
 	dt {
-		min-width: 4rem;
+		display: flex;
+		align-items: center;
+		gap: 0.2rem;
+		min-width: 7rem;
+		flex-shrink: 0;
 	}
 
 	kbd {
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		background: var(--color-bg);
 		border: 1px solid var(--color-border-strong);
 		border-radius: var(--radius-sm);
@@ -104,7 +150,7 @@
 	}
 
 	dd {
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		color: var(--color-muted);
 		margin: 0;
 	}
@@ -112,7 +158,7 @@
 	.hint {
 		font-size: 0.75rem;
 		color: var(--color-subtle);
-		margin: 1rem 0 0;
+		margin: 1.25rem 0 0;
 		border-top: 1px solid var(--color-border);
 		padding-top: 0.75rem;
 	}
