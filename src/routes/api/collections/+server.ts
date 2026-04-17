@@ -13,14 +13,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const body = await request.json();
 	const name = String(body.name ?? '').trim();
-	const icon = String(body.icon ?? '📁').trim();
 
 	if (!name) error(400, 'Name required');
 
 	const slug = slugify(name);
 	const [col] = await db
 		.insert(collections)
-		.values({ name, slug, icon, userId: locals.user.id })
+		.values({ name, slug, userId: locals.user.id })
 		.returning();
 
 	return json(col, { status: 201 });

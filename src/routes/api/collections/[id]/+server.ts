@@ -13,13 +13,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	const body = await request.json();
 	const name = String(body.name ?? '').trim();
-	const icon = String(body.icon ?? '📁').trim();
 
 	if (!name) error(400, 'Name required');
 
 	const [col] = await db
 		.update(collections)
-		.set({ name, icon, slug: slugify(name) })
+		.set({ name, slug: slugify(name) })
 		.where(and(eq(collections.id, params.id), eq(collections.userId, locals.user.id)))
 		.returning();
 

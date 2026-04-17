@@ -1,5 +1,4 @@
 import { db } from './db';
-import { users, sessions, collections, articles, tags, articleTags } from './schema';
 import { sql } from 'drizzle-orm';
 
 export function migrate() {
@@ -27,7 +26,6 @@ export function migrate() {
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			name TEXT NOT NULL,
 			slug TEXT NOT NULL,
-			icon TEXT DEFAULT '📁',
 			created_at INTEGER
 		)
 	`);
@@ -36,7 +34,6 @@ export function migrate() {
 		CREATE TABLE IF NOT EXISTS articles (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			collection_id TEXT REFERENCES collections(id) ON DELETE SET NULL,
 			url TEXT NOT NULL,
 			title TEXT NOT NULL,
 			description TEXT,
@@ -51,6 +48,14 @@ export function migrate() {
 			is_favorite INTEGER DEFAULT 0,
 			saved_at INTEGER,
 			read_at INTEGER
+		)
+	`);
+
+	db.run(sql`
+		CREATE TABLE IF NOT EXISTS article_collections (
+			article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+			collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+			PRIMARY KEY (article_id, collection_id)
 		)
 	`);
 
@@ -70,4 +75,22 @@ export function migrate() {
 			PRIMARY KEY (article_id, tag_id)
 		)
 	`);
+
+	// Migrations for existing databases
+	try {
+		// Migrate old single-collection data to the junction table
+		db.run(sql`
+			INSERT OR IGNORE INTO article_collections (article_id, collection_id)
+			SELECT id, collection_id FROM articles WHERE collection_id IS NOT NULL
+		`);
+		db.run(sql`ALTER TABLE articles DROP COLUMN collection_id`);
+	} catch {
+		// Column doesn't exist or already migrated — safe to ignore
+	}
+
+	try {
+		db.run(sql`ALTER TABLE collections DROP COLUMN icon`);
+	} catch {
+		// Already dropped or never existed
+	}
 }

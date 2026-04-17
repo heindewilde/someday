@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
-	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 
 	let { data } = $props();
 
@@ -15,14 +14,10 @@
 	$effect(() => { articles = [...data.articles]; });
 
 	// --- UI state ---
-	let urlInput = $state('');
-	let saving = $state(false);
-	let saveError = $state('');
 	let showTagInput = $state<string | null>(null);
 	let tagInputValue = $state('');
 	let showNewCollection = $state(false);
 	let newCollectionName = $state('');
-	let newCollectionIcon = $state('📁');
 	let hoveredArticleId = $state<string | null>(null);
 	let keyboardArticleId = $state<string | null>(null);
 	const activeArticleId = $derived(hoveredArticleId ?? keyboardArticleId);
@@ -37,12 +32,6 @@
 	let showCollectionMenu = $state<string | null>(null);
 	let renamingCollectionId = $state<string | null>(null);
 	let renameColName = $state('');
-	let renameColIcon = $state('');
-	let showEmojiPicker = $state<'new' | 'rename' | null>(null);
-	let hoveredTagSidebarId = $state<string | null>(null);
-	let showTagMenu = $state<string | null>(null);
-	let renamingTagId = $state<string | null>(null);
-	let renameTagName = $state('');
 
 	const tagSuggestions = $derived.by(() => {
 		if (!showTagInput || !tagInputValue.trim()) return [];
@@ -60,8 +49,6 @@
 		function close(e: MouseEvent) {
 			if (!(e.target as HTMLElement).closest('.col-picker-wrap')) showCollectionPicker = null;
 			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
-			if (!(e.target as HTMLElement).closest('.tag-menu-wrap')) showTagMenu = null;
-			if (!(e.target as HTMLElement).closest('.emoji-wrap')) showEmojiPicker = null;
 		}
 		window.addEventListener('mousedown', close);
 		return () => window.removeEventListener('mousedown', close);
@@ -109,14 +96,8 @@
 		const target = e.target as HTMLElement;
 		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
 
-		// Cmd/Ctrl+V: paste URL to save
-		if (!isEditing && (e.metaKey || e.ctrlKey) && e.key === 'v') {
-			e.preventDefault();
-			navigator.clipboard.readText().then((text) => {
-				const trimmed = text.trim();
-				if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) saveUrl(trimmed);
-			});
-			return;
+		if (false) {
+			// placeholder to preserve block structure
 		}
 
 		// Escape: universal dismiss
@@ -137,9 +118,6 @@
 
 		// / — focus search
 		if (e.key === '/') { e.preventDefault(); document.querySelector<HTMLInputElement>('.search-input')?.focus(); return; }
-
-		// n — focus save bar
-		if (e.key === 'n') { e.preventDefault(); document.querySelector<HTMLInputElement>('.save-input')?.focus(); return; }
 
 		// 1–4 — switch filter
 		if (e.key === '1') { e.preventDefault(); navTo({ filter: 'unread', tag: null, collection: null, offset: null }); return; }
@@ -180,8 +158,6 @@
 	// --- Save URL ---
 	async function saveUrl(url: string) {
 		if (!url.trim()) return;
-		saving = true;
-		saveError = '';
 		try {
 			const res = await fetch('/api/articles', {
 				method: 'POST',
@@ -190,13 +166,12 @@
 			});
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}));
-				saveError = err.message ?? 'Failed to save';
+				addToast(err.message ?? 'Failed to save', 'error');
 			} else {
-				urlInput = '';
 				invalidateAll();
 			}
 		} catch {
-			saveError = 'Failed to save article';
+			addToast('Failed to save article', 'error');
 		} finally {
 			saving = false;
 		}
@@ -290,13 +265,22 @@
 		invalidateAll();
 	}
 
-	async function moveToCollection(articleId: string, collectionId: string | null) {
+	async function toggleCollection(articleId: string, collectionId: string) {
 		const a = articles.find(x => x.id === articleId);
 		if (!a) return;
-		const old = a.collectionId;
-		a.collectionId = collectionId;
-		try { await patch(articleId, { collectionId }); invalidateAll(); }
-		catch { a.collectionId = old; addToast('Failed to move', 'error'); }
+		const has = a.collections.some((c: { id: string }) => c.id === collectionId);
+		const col = data.collections.find(c => c.id === collectionId);
+		const oldCollections = [...a.collections];
+		a.collections = has
+			? a.collections.filter((c: { id: string }) => c.id !== collectionId)
+			: [...a.collections, { id: collectionId, name: col?.name ?? '' }];
+		const res = await fetch(`/api/articles/${articleId}/collections`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ collectionIds: a.collections.map((c: { id: string }) => c.id) })
+		});
+		if (!res.ok) { a.collections = oldCollections; addToast('Failed to update collection', 'error'); }
+		else invalidateAll();
 	}
 
 	async function createCollection() {
@@ -305,11 +289,10 @@
 		const res = await fetch('/api/collections', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name, icon: newCollectionIcon })
+			body: JSON.stringify({ name })
 		});
 		if (!res.ok) { addToast('Failed to create collection', 'error'); return; }
 		newCollectionName = '';
-		newCollectionIcon = '📁';
 		showNewCollection = false;
 		invalidateAll();
 	}
@@ -320,7 +303,7 @@
 		const res = await fetch(`/api/collections/${id}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name, icon: renameColIcon })
+			body: JSON.stringify({ name })
 		});
 		if (!res.ok) { addToast('Failed to rename collection', 'error'); return; }
 		renamingCollectionId = null;
@@ -332,27 +315,6 @@
 		const res = await fetch(`/api/collections/${id}`, { method: 'DELETE' });
 		if (!res.ok) { addToast('Failed to delete collection', 'error'); return; }
 		if (data.activeCollection === id) navTo({ collection: null });
-		invalidateAll();
-	}
-
-	async function renameTag(id: string) {
-		const name = renameTagName.trim();
-		if (!name) return;
-		const res = await fetch(`/api/tags/${id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name })
-		});
-		if (!res.ok) { addToast('Failed to rename tag', 'error'); return; }
-		renamingTagId = null;
-		invalidateAll();
-	}
-
-	async function deleteTag(id: string, count: number) {
-		if (count > 0 && !confirm(`Remove tag from ${count} article${count === 1 ? '' : 's'} and delete it?`)) return;
-		const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
-		if (!res.ok) { addToast('Failed to delete tag', 'error'); return; }
-		if (data.activeTag) navTo({ tag: null });
 		invalidateAll();
 	}
 
@@ -415,7 +377,13 @@
 		</nav>
 
 		<div class="sidebar-section">
-			<p class="section-label">Collections</p>
+			<div class="section-label-row">
+				<p class="section-label">Collections</p>
+				<div class="info-tip">
+					<svg width="11" height="11" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7v4M7.5 5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+					<span class="tip-text">Collections are a long-term library. Articles can live in multiple collections at once. Read/unread status doesn't apply here.</span>
+				</div>
+			</div>
 			{#each data.collections as col}
 				<div
 					class="col-item-wrap"
@@ -425,18 +393,6 @@
 				>
 					{#if renamingCollectionId === col.id}
 						<div class="new-collection-form">
-							<div class="emoji-wrap">
-								<button
-									type="button"
-									class="col-icon-btn"
-									onclick={(e) => { e.stopPropagation(); showEmojiPicker = showEmojiPicker === 'rename' ? null : 'rename'; }}
-								>{renameColIcon}</button>
-								{#if showEmojiPicker === 'rename'}
-									<div class="emoji-popover">
-										<EmojiPicker onselect={(e) => { renameColIcon = e; showEmojiPicker = null; }} />
-									</div>
-								{/if}
-							</div>
 							<input
 								class="col-name-input"
 								type="text"
@@ -466,7 +422,7 @@
 								>···</button>
 								{#if showCollectionMenu === col.id}
 									<div class="col-menu-dropdown">
-										<button onclick={() => { renamingCollectionId = col.id; renameColName = col.name; renameColIcon = col.icon ?? '📁'; showCollectionMenu = null; hoveredCollectionId = null; }}>Rename</button>
+										<button onclick={() => { renamingCollectionId = col.id; renameColName = col.name; showCollectionMenu = null; hoveredCollectionId = null; }}>Rename</button>
 										<button class="danger" onclick={() => { showCollectionMenu = null; deleteCollection(col.id, col.articleCount); }}>Delete</button>
 									</div>
 								{/if}
@@ -478,90 +434,25 @@
 
 			{#if showNewCollection}
 				<div class="new-collection-form">
-					<div class="emoji-wrap">
-						<button
-							type="button"
-							class="col-icon-btn"
-							onclick={(e) => { e.stopPropagation(); showEmojiPicker = showEmojiPicker === 'new' ? null : 'new'; }}
-						>{newCollectionIcon}</button>
-						{#if showEmojiPicker === 'new'}
-							<div class="emoji-popover">
-								<EmojiPicker onselect={(e) => { newCollectionIcon = e; showEmojiPicker = null; }} />
-							</div>
-						{/if}
-					</div>
 					<input
 						class="col-name-input"
 						type="text"
 						placeholder="Name…"
 						bind:value={newCollectionName}
-						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') { showNewCollection = false; showEmojiPicker = null; } }}
+						onkeydown={(e) => { if (e.key === 'Enter') createCollection(); if (e.key === 'Escape') showNewCollection = false; }}
 					/>
 					<button class="col-save-btn" onclick={createCollection} disabled={!newCollectionName.trim()}>Add</button>
 				</div>
 			{:else}
 				<button
 					class="nav-item new-col-btn"
-					onclick={() => { showNewCollection = true; newCollectionName = ''; newCollectionIcon = '📁'; }}
+					onclick={() => { showNewCollection = true; newCollectionName = ''; }}
 				>
 					<svg width="11" height="11" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v13M1 7.5h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 					New collection
 				</button>
 			{/if}
 		</div>
-
-		{#if data.tags.length > 0}
-			<div class="sidebar-section">
-				<p class="section-label">Tags</p>
-				{#each data.tags as tag}
-					<div
-						class="col-item-wrap"
-						role="listitem"
-						onmouseenter={() => hoveredTagSidebarId = tag.id}
-						onmouseleave={() => { if (showTagMenu !== tag.id) hoveredTagSidebarId = null; }}
-					>
-						{#if renamingTagId === tag.id}
-							<div class="new-collection-form">
-								<input
-									class="col-name-input"
-									type="text"
-									bind:value={renameTagName}
-									onkeydown={(e) => { if (e.key === 'Enter') renameTag(tag.id); if (e.key === 'Escape') renamingTagId = null; }}
-								/>
-								<button class="col-save-btn" onclick={() => renameTag(tag.id)} disabled={!renameTagName.trim()}>Save</button>
-							</div>
-						{:else}
-							<button
-								class="nav-item"
-								class:active={data.activeTag === tag.slug}
-								onclick={() => navTo({ tag: tag.slug, collection: null })}
-							>
-								<span class="tag-dot"></span>
-								{tag.name}
-								{#if tag.articleCount > 0}
-									<span class="badge">{tag.articleCount}</span>
-								{/if}
-							</button>
-							{#if hoveredTagSidebarId === tag.id || showTagMenu === tag.id}
-								<div class="col-menu-wrap tag-menu-wrap">
-									<button
-										class="col-menu-btn"
-										onclick={(e) => { e.stopPropagation(); showTagMenu = showTagMenu === tag.id ? null : tag.id; }}
-										aria-label="Tag options"
-									>···</button>
-									{#if showTagMenu === tag.id}
-										<div class="col-menu-dropdown">
-											<button onclick={() => { renamingTagId = tag.id; renameTagName = tag.name; showTagMenu = null; hoveredTagSidebarId = null; }}>Rename</button>
-											<button class="danger" onclick={() => { showTagMenu = null; deleteTag(tag.id, tag.articleCount); }}>Delete</button>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						{/if}
-					</div>
-				{/each}
-			</div>
-		{/if}
 
 		<div class="sidebar-footer">
 			<button class="nav-item" onclick={toggleDark} title={isDark ? 'Switch to light' : 'Switch to dark'}>
@@ -585,24 +476,6 @@
 	</aside>
 
 	<main class="main">
-		<div class="save-bar">
-			<div class="save-wrap" class:busy={saving}>
-				<svg width="14" height="14" viewBox="0 0 15 15" fill="none" class="save-icon"><path d="M1 1l13 13M10 6.5A3.5 3.5 0 116.5 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-				<input
-					type="url"
-					placeholder="Paste a URL to save…  or press Cmd+V anywhere"
-					bind:value={urlInput}
-					onkeydown={(e) => e.key === 'Enter' && saveUrl(urlInput)}
-					disabled={saving}
-					class="save-input"
-				/>
-				<button class="save-btn" onclick={() => saveUrl(urlInput)} disabled={saving || !urlInput.trim()}>
-					{saving ? '…' : 'Save'}
-				</button>
-			</div>
-			{#if saveError}<p class="save-error">{saveError}</p>{/if}
-		</div>
-
 		<div class="search-wrap">
 			<svg width="13" height="13" viewBox="0 0 15 15" fill="none" class="search-icon"><path d="M10 6.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM9.36 10.07L12 12.71" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 			<input
@@ -617,8 +490,30 @@
 			{/if}
 		</div>
 
+		{#if data.tags.length > 0 || true}
+			<div class="filter-bar">
+				{#each data.tags as tag}
+					<button
+						class="filter-pill"
+						class:active={data.activeTag === tag.slug}
+						onclick={() => navTo({ tag: data.activeTag === tag.slug ? null : tag.slug, collection: null, offset: null })}
+					>{tag.name}</button>
+				{/each}
+				<button
+					class="filter-pill"
+					class:active={data.readingTime === 'under5'}
+					onclick={() => navTo({ time: data.readingTime === 'under5' ? null : 'under5', offset: null })}
+				>&lt; 5 min</button>
+				<button
+					class="filter-pill"
+					class:active={data.readingTime === 'over20'}
+					onclick={() => navTo({ time: data.readingTime === 'over20' ? null : 'over20', offset: null })}
+				>&gt; 20 min</button>
+			</div>
+		{/if}
+
 		<div class="list-header">
-			<h2>{filterLabels[data.filter] ?? 'Articles'}{data.activeTag ? ` · #${data.activeTag}` : ''}{data.activeCollection ? ` · ${data.collections.find(c => c.id === data.activeCollection)?.name}` : ''}{data.q ? ` · "${data.q}"` : ''}</h2>
+			<h2>{data.activeCollection ? (data.collections.find(c => c.id === data.activeCollection)?.name ?? 'Collection') : (filterLabels[data.filter] ?? 'Articles')}{data.activeTag ? ` · #${data.activeTag}` : ''}{data.q ? ` · "${data.q}"` : ''}</h2>
 			<span class="count">{data.total}</span>
 		</div>
 
@@ -626,13 +521,13 @@
 			{#if data.articles.length === 0}
 				<div class="empty">
 					<p class="empty-title">Nothing here yet</p>
-					<p class="empty-sub">Paste a URL above or press Cmd+V anywhere on this page</p>
+					<p class="empty-sub">Paste a URL to save an article — press Cmd+V anywhere on the page.</p>
 				</div>
 			{:else}
 			{#each articles as article (article.id)}
 					<article
 						class="card"
-						class:read={article.isRead}
+						class:read={article.isRead && !data.activeCollection}
 						class:selected={activeArticleId === article.id}
 						data-article-id={article.id}
 						onmouseenter={() => { hoveredArticleId = article.id; keyboardArticleId = null; }}
@@ -692,64 +587,67 @@
 						</div>
 
 						<div class="card-actions">
-							<button class="act" class:act-on={article.isRead} onclick={() => toggleRead(article.id, article.isRead ?? false)}>
-								{#if article.isRead}
-									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-									Unread
-								{:else}
-									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/></svg>
-									Read
-								{/if}
-							</button>
+							{#if !data.activeCollection}
+								<button class="act" class:act-on={article.isRead} onclick={() => toggleRead(article.id, article.isRead ?? false)}>
+									{#if article.isRead}
+										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+										Unread
+									{:else}
+										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/></svg>
+										Read
+									{/if}
+								</button>
+							{/if}
 							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleFavorite(article.id, article.isFavorite ?? false)}>
 								<svg width="12" height="12" viewBox="0 0 15 15" fill={article.isFavorite ? 'currentColor' : 'none'}><path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
 								{article.isFavorite ? 'Saved' : 'Favorite'}
 							</button>
-							{#if data.filter === 'archive'}
-								<button class="act" onclick={() => unarchiveArticle(article.id)}>
-									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 9V6M6 7.5l1.5-1.5L9 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-									Unarchive
-								</button>
-							{:else}
-								<button class="act" onclick={() => archiveArticle(article.id)}>
-									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-									Archive
-								</button>
+							{#if !data.activeCollection}
+								{#if data.filter === 'archive'}
+									<button class="act" onclick={() => unarchiveArticle(article.id)}>
+										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 9V6M6 7.5l1.5-1.5L9 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+										Unarchive
+									</button>
+								{:else}
+									<button class="act" onclick={() => archiveArticle(article.id)}>
+										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+										Archive
+									</button>
+								{/if}
 							{/if}
 							{#if data.collections.length > 0}
-								{@const currentCol = data.collections.find(c => c.id === article.collectionId)}
 								<div class="col-picker-wrap">
 									<button
 										class="act"
-										class:act-on={!!currentCol}
+										class:act-on={article.collections.length > 0}
 										onclick={() => showCollectionPicker = showCollectionPicker === article.id ? null : article.id}
 									>
 										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M1 4.5A1.5 1.5 0 012.5 3h3.672a1.5 1.5 0 011.06.44l.829.828A1.5 1.5 0 009.12 4.8H12.5A1.5 1.5 0 0114 6.3V11.5A1.5 1.5 0 0112.5 13h-10A1.5 1.5 0 011 11.5V4.5z" stroke="currentColor" stroke-width="1.3"/></svg>
-										{currentCol ? `${currentCol.icon} ${currentCol.name}` : 'Collection'}
+										{article.collections.length > 0 ? article.collections.map((c: { name: string }) => c.name).join(', ') : 'Collection'}
 									</button>
 									{#if showCollectionPicker === article.id}
 										<div class="col-picker-dropdown">
 											{#each data.collections as col}
 												<button
 													class="col-picker-opt"
-													class:active={article.collectionId === col.id}
-													onclick={() => { moveToCollection(article.id, article.collectionId === col.id ? null : col.id); showCollectionPicker = null; }}
+													class:active={article.collections.some((c: { id: string }) => c.id === col.id)}
+													onclick={() => toggleCollection(article.id, col.id)}
 												>
-													<span>{col.icon} {col.name}</span>
-													{#if article.collectionId === col.id}
+													<span>{col.name}</span>
+													{#if article.collections.some((c: { id: string }) => c.id === col.id)}
 														<svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
 													{/if}
 												</button>
 											{/each}
-											{#if article.collectionId}
-												<div class="col-picker-sep"></div>
-												<button class="col-picker-opt col-picker-remove" onclick={() => { moveToCollection(article.id, null); showCollectionPicker = null; }}>
-													Remove from collection
-												</button>
-											{/if}
 										</div>
 									{/if}
 								</div>
+							{/if}
+							{#if data.activeCollection}
+								<button class="act act-remove" onclick={() => { toggleCollection(article.id, data.activeCollection!); }}>
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+									Remove
+								</button>
 							{/if}
 							<a class="act" href={article.url} target="_blank" rel="noopener">
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -937,38 +835,6 @@
 		padding: 0.25rem 0.375rem 0.375rem;
 	}
 
-	.emoji-wrap {
-		position: relative;
-		flex-shrink: 0;
-	}
-
-	.col-icon-btn {
-		width: 2rem;
-		height: 2rem;
-		border: 1px solid var(--color-border);
-		border-radius: 5px;
-		background: var(--color-bg);
-		cursor: pointer;
-		font-size: 0.9375rem;
-		display: grid;
-		place-items: center;
-		transition: border-color 0.1s;
-	}
-
-	.col-icon-btn:hover { border-color: var(--color-text); }
-
-	.emoji-popover {
-		position: absolute;
-		top: calc(100% + 4px);
-		left: 0;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-lg);
-		z-index: 60;
-		width: 200px;
-	}
-
 	.col-name-input {
 		flex: 1;
 		min-width: 0;
@@ -1006,14 +872,6 @@
 		letter-spacing: 0.06em;
 		padding: 0.25rem 0.6rem;
 		margin: 0 0 0.125rem;
-	}
-
-	.tag-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--color-border-strong);
-		flex-shrink: 0;
 	}
 
 	.sidebar-footer {
@@ -1088,67 +946,81 @@
 	.page-btn:hover { border-color: var(--color-border-strong); }
 	.page-info { font-size: 0.8125rem; color: var(--color-muted); }
 
-	/* Save bar */
-	.save-bar { margin-bottom: 0.75rem; }
+	/* Filter bar */
+	.filter-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		margin-bottom: 0.875rem;
+	}
 
-	.save-wrap {
+	.filter-pill {
+		font-size: 0.75rem;
+		font-family: inherit;
+		padding: 0.2em 0.65em;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-muted);
+		cursor: pointer;
+		transition: all 0.1s;
+	}
+
+	.filter-pill:hover {
+		border-color: var(--color-border-strong);
+		color: var(--color-text);
+	}
+
+	.filter-pill.active {
+		background: var(--color-text);
+		border-color: var(--color-text);
+		color: #fff;
+	}
+
+	/* Collections section header with tooltip */
+	.section-label-row {
 		display: flex;
 		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.6rem;
+	}
+
+	.section-label-row .section-label { padding: 0; }
+
+	.info-tip {
+		position: relative;
+		display: flex;
+		align-items: center;
+		color: var(--color-subtle);
+		cursor: default;
+	}
+
+	.tip-text {
+		display: none;
+		position: absolute;
+		left: calc(100% + 8px);
+		top: 50%;
+		transform: translateY(-50%);
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-sm);
-		transition: border-color 0.15s, box-shadow 0.15s;
-		overflow: hidden;
-		padding-left: 0.75rem;
-		gap: 0.25rem;
-	}
-
-	.save-wrap:focus-within {
-		border-color: var(--color-text);
+		border-radius: var(--radius-md);
 		box-shadow: var(--shadow-md);
+		padding: 0.5rem 0.625rem;
+		font-size: 0.75rem;
+		color: var(--color-muted);
+		width: 200px;
+		line-height: 1.5;
+		z-index: 30;
+		white-space: normal;
 	}
 
-	.save-icon {
-		color: var(--color-subtle);
-		flex-shrink: 0;
-	}
+	.info-tip:hover .tip-text { display: block; }
 
-	.save-input {
-		flex: 1;
-		border: none;
-		background: transparent;
-		font-family: inherit;
-		font-size: 0.9375rem;
-		color: var(--color-text);
-		padding: 0.6875rem 0.5rem;
-		min-width: 0;
-	}
-
-	.save-input:focus { outline: none; }
-	.save-input::placeholder { color: var(--color-subtle); }
-	.save-input:disabled { opacity: 0.5; }
-
-	.save-btn {
-		background: var(--color-text);
-		color: #fff;
-		border: none;
-		padding: 0.6875rem 1.125rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		font-family: inherit;
-		cursor: pointer;
-		flex-shrink: 0;
-		transition: opacity 0.15s;
-	}
-
-	.save-btn:hover:not(:disabled) { opacity: 0.8; }
-	.save-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-	.save-error {
-		font-size: 0.8125rem;
+	/* Remove from collection button */
+	.act-remove:hover {
+		background: #fef2f2;
+		border-color: #fca5a5;
 		color: #dc2626;
-		margin: 0.375rem 0 0 0.75rem;
 	}
 
 	/* List header */
@@ -1283,32 +1155,34 @@
 	.tag {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.15rem;
-		font-size: 0.6875rem;
-		color: var(--color-subtle);
+		gap: 0;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
 	}
 
 	.tag-name {
 		background: none;
 		border: none;
-		padding: 0;
-		font-size: inherit;
+		padding: 0.15em 0.5em;
+		font-size: 0.6875rem;
 		font-family: inherit;
-		color: inherit;
+		color: var(--color-muted);
 		cursor: pointer;
-		line-height: inherit;
+		line-height: 1.5;
 	}
 
-	.tag-name:hover { color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px; }
+	.tag-name:hover { color: var(--color-text); }
 
 	.tag-x {
 		background: none;
 		border: none;
-		padding: 0;
+		border-left: 1px solid var(--color-border);
+		padding: 0.15em 0.35em;
 		cursor: pointer;
-		color: var(--color-border-strong);
-		font-size: 0.75rem;
-		line-height: 1;
+		color: var(--color-subtle);
+		font-size: 0.6875rem;
+		line-height: 1.5;
 		opacity: 0;
 		transition: opacity 0.15s, color 0.1s;
 	}
@@ -1510,15 +1384,6 @@
 
 	.col-picker-opt:hover { background: var(--color-bg); }
 	.col-picker-opt.active { font-weight: 500; }
-
-	.col-picker-sep {
-		height: 1px;
-		background: var(--color-border);
-		margin: 0.25rem 0;
-	}
-
-	.col-picker-remove { color: var(--color-muted); }
-	.col-picker-remove:hover { color: #dc2626; background: #fef2f2; }
 
 	.act-del:hover {
 		background: #fef2f2;
