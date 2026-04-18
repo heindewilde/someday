@@ -47,10 +47,18 @@
 		await patch({ isFavorite: next });
 	}
 
+	let deleteTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	async function deleteArticle() {
-		if (!confirm('Delete this article?')) return;
-		await fetch(`/api/articles/${article.id}`, { method: 'DELETE' });
-		goto('/');
+		let undone = false;
+		addToast('Article deleted', 'info', {
+			undoFn: () => { undone = true; if (deleteTimeout) clearTimeout(deleteTimeout); }
+		});
+		deleteTimeout = setTimeout(async () => {
+			if (undone) return;
+			await fetch(`/api/articles/${article.id}`, { method: 'DELETE' });
+			goto('/');
+		}, 5600);
 	}
 
 	const savedDate = article.savedAt
@@ -250,9 +258,9 @@
 	}
 
 	.act-del:hover {
-		background: #fef2f2;
-		border-color: #fca5a5;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border-color: var(--color-danger-border);
+		color: var(--color-danger);
 	}
 
 	.reader {
@@ -277,8 +285,9 @@
 	.paywall-badge {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: #92400e;
-		background: #fef3c7;
+		color: var(--color-warning);
+		background: var(--color-warning-bg);
+		border: 1px solid var(--color-warning-border);
 		border-radius: 3px;
 		padding: 0.1em 0.4em;
 		margin-left: 0.25rem;

@@ -217,11 +217,11 @@
 
 	.status {
 		font-size: 0.8125rem;
-		color: #16a34a;
+		color: var(--color-success);
 		margin: 0 0 0.625rem;
 	}
 
-	.status.error { color: #dc2626; }
+	.status.error { color: var(--color-danger); }
 
 	.btn {
 		display: inline-flex;

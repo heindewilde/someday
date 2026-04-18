@@ -114,9 +114,9 @@
 	}
 
 	.error-banner {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border: 1px solid var(--color-danger-border);
+		color: var(--color-danger);
 		border-radius: var(--radius-md);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.875rem;

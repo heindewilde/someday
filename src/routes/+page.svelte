@@ -319,7 +319,13 @@
 	}
 
 	async function deleteCollection(id: string, articleCount: number) {
-		if (articleCount > 0 && !confirm(`This collection contains ${articleCount} article${articleCount === 1 ? '' : 's'}. They won't be deleted. Remove the collection anyway?`)) return;
+		const label = articleCount > 0
+			? `Collection deleted — ${articleCount} article${articleCount === 1 ? '' : 's'} kept`
+			: 'Collection deleted';
+		let undone = false;
+		addToast(label, 'info', { undoFn: () => { undone = true; } });
+		await new Promise(r => setTimeout(r, 5600));
+		if (undone) return;
 		const res = await fetch(`/api/collections/${id}`, { method: 'DELETE' });
 		if (!res.ok) { addToast('Failed to delete collection', 'error'); return; }
 		if (data.activeCollection === id) navTo({ collection: null });
@@ -540,8 +546,22 @@
 		<div class="article-list">
 			{#if data.articles.length === 0}
 				<div class="empty">
-					<p class="empty-title">Nothing here yet</p>
-					<p class="empty-sub">Paste a URL to save an article — press Cmd+V anywhere on the page.</p>
+					{#if data.q}
+						<p class="empty-title">No results for "{data.q}"</p>
+						<p class="empty-sub">Try a different search term or clear the search.</p>
+					{:else if data.activeTag}
+						<p class="empty-title">No articles tagged #{data.activeTag}</p>
+						<p class="empty-sub">Save articles and tag them to see them here.</p>
+					{:else if data.activeCollection}
+						<p class="empty-title">This collection is empty</p>
+						<p class="empty-sub">Open an article and add it to this collection.</p>
+					{:else if data.readingTime}
+						<p class="empty-title">No articles match this filter</p>
+						<p class="empty-sub">Try a different reading time filter.</p>
+					{:else}
+						<p class="empty-title">Nothing here yet</p>
+						<p class="empty-sub">Paste a URL to save an article — press Cmd+V anywhere on the page.</p>
+					{/if}
 				</div>
 			{:else}
 			{#each articles as article (article.id)}
@@ -1034,9 +1054,9 @@
 
 	/* Remove from collection button */
 	.act-remove:hover {
-		background: #fef2f2;
-		border-color: #fca5a5;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border-color: var(--color-danger-border);
+		color: var(--color-danger);
 	}
 
 	/* List header */
@@ -1105,7 +1125,11 @@
 	}
 
 	.card.read {
-		opacity: 0.55;
+		opacity: 0.6;
+	}
+
+	.card.read:hover, .card.read.selected {
+		opacity: 1;
 	}
 
 	.card-meta {
@@ -1126,8 +1150,9 @@
 	.paywall-badge {
 		font-size: 0.6875rem;
 		font-weight: 500;
-		color: #92400e;
-		background: #fef3c7;
+		color: var(--color-warning);
+		background: var(--color-warning-bg);
+		border: 1px solid var(--color-warning-border);
 		border-radius: 3px;
 		padding: 0.1em 0.4em;
 		margin-left: 0.25rem;
@@ -1419,9 +1444,9 @@
 	.col-picker-opt.active { font-weight: 500; }
 
 	.act-del:hover {
-		background: #fef2f2;
-		border-color: #fca5a5;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border-color: var(--color-danger-border);
+		color: var(--color-danger);
 	}
 
 	/* ── Stats ── */
@@ -1463,7 +1488,7 @@
 		font-size: 0.8125rem;
 		font-family: inherit;
 		font-weight: 500;
-		opacity: 0.55;
+		opacity: 0.7;
 		transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 	}
 
