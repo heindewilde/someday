@@ -28,7 +28,7 @@ export const articles = sqliteTable('articles', {
 	id: text('id').primaryKey().$defaultFn(() => createId()),
 	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 	collectionId: text('collection_id').references(() => collections.id, { onDelete: 'set null' }),
-	url: text('url').notNull(),
+	url: text('url'),
 	title: text('title').notNull(),
 	description: text('description'),
 	content: text('content'),
@@ -40,6 +40,7 @@ export const articles = sqliteTable('articles', {
 	isRead: integer('is_read', { mode: 'boolean' }).default(false),
 	isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
 	isFavorite: integer('is_favorite', { mode: 'boolean' }).default(false),
+	source: text('source'),
 	savedAt: integer('saved_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 	readAt: integer('read_at', { mode: 'timestamp' })
 });

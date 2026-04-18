@@ -70,4 +70,6 @@ export function migrate() {
 			PRIMARY KEY (article_id, tag_id)
 		)
 	`);
+
+	try { db.run(sql`ALTER TABLE articles ADD COLUMN source TEXT`); } catch { /* already exists */ }
 }

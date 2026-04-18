@@ -638,9 +638,10 @@
 							{#if article.favicon}
 								<img src={article.favicon} alt="" class="favicon" width="13" height="13" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 							{/if}
-							<span class="site">{article.siteName ?? new URL(article.url).hostname}</span>
+							<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : 'Email')}</span>
 							{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 							{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min</span>{/if}
+							{#if article.source === 'email'}<span class="email-badge">Email</span>{/if}
 						</div>
 
 						<div class="card-body">
@@ -747,10 +748,12 @@
 									{/if}
 								</div>
 							{/if}
-							<a class="act" href={article.url} target="_blank" rel="noopener">
-								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-								Original
-							</a>
+							{#if article.url}
+								<a class="act" href={article.url} target="_blank" rel="noopener">
+									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+									Original
+								</a>
+							{/if}
 							<button class="act act-del" onclick={() => deleteArticle(article.id)}>
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 								Delete
@@ -1230,6 +1233,16 @@
 
 	.site, .author { font-size: 0.75rem; color: var(--color-muted); }
 	.rtime { font-size: 0.75rem; color: var(--color-subtle); }
+	.email-badge {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--color-info);
+		background: var(--color-info-bg);
+		border: 1px solid var(--color-info-border);
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
+	}
 	.sep { font-size: 0.75rem; color: var(--color-subtle); }
 
 	.card-body {

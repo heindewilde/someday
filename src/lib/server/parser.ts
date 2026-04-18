@@ -12,9 +12,26 @@ export interface ParsedArticle {
 	readingTimeMinutes: number;
 }
 
-function estimateReadingTime(text: string): number {
+export function estimateReadingTime(text: string): number {
 	const words = text.trim().split(/\s+/).length;
 	return Math.max(1, Math.round(words / 238));
+}
+
+export function sanitizeEmailHtml(html: string): string {
+	const dom = new JSDOM(html);
+	const doc = dom.window.document;
+	doc.querySelectorAll('script, style, link[rel="stylesheet"], base').forEach(el => el.remove());
+	doc.querySelectorAll('*').forEach(el => {
+		for (const attr of [...el.attributes]) {
+			if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
+		}
+	});
+	doc.querySelectorAll('img').forEach(img => {
+		const w = parseInt(img.getAttribute('width') ?? '999');
+		const h = parseInt(img.getAttribute('height') ?? '999');
+		if (w <= 1 || h <= 1) img.remove();
+	});
+	return doc.body?.innerHTML ?? '';
 }
 
 export async function parseArticle(url: string): Promise<ParsedArticle> {

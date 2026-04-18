@@ -67,12 +67,14 @@
 				</svg>
 				{article.isFavorite ? 'Favorited' : 'Favorite'}
 			</button>
-			<a class="act" href={article.url} target="_blank" rel="noopener">
-				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-					<path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				Original
-			</a>
+			{#if article.url}
+				<a class="act" href={article.url} target="_blank" rel="noopener">
+					<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
+						<path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Original
+				</a>
+			{/if}
 			<button class="act act-del" onclick={deleteArticle}>
 				<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 				Delete
@@ -86,10 +88,11 @@
 				<img src={article.favicon} alt="" class="favicon" width="14" height="14"
 					onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 			{/if}
-			<span class="site">{article.siteName ?? new URL(article.url).hostname}</span>
+			<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : 'Email')}</span>
 			{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 			{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min read</span>{/if}
 			{#if savedDate}<span class="sep">·</span><span class="rtime">Saved {savedDate}</span>{/if}
+			{#if article.source === 'email'}<span class="email-badge">Email</span>{/if}
 		</div>
 
 		<h1 class="article-title">{article.title}</h1>
@@ -106,7 +109,7 @@
 		{:else}
 			<div class="no-content">
 				<p>No saved content for this article.</p>
-				<a href={article.url} target="_blank" rel="noopener">Open original →</a>
+				{#if article.url}<a href={article.url} target="_blank" rel="noopener">Open original →</a>{/if}
 			</div>
 		{/if}
 	</div>
@@ -184,9 +187,20 @@
 	}
 
 	.act-del:hover {
-		background: #fef2f2;
-		border-color: #fca5a5;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border-color: var(--color-danger-border);
+		color: var(--color-danger);
+	}
+
+	.email-badge {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-info);
+		background: var(--color-info-bg);
+		border: 1px solid var(--color-info-border);
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
 	}
 
 	.reader {
