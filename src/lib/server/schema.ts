@@ -38,6 +38,7 @@ export const articles = sqliteTable('articles', {
 	isRead: integer('is_read', { mode: 'boolean' }).default(false),
 	isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
 	isFavorite: integer('is_favorite', { mode: 'boolean' }).default(false),
+	isPaywalled: integer('is_paywalled', { mode: 'boolean' }).default(false),
 	savedAt: integer('saved_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 	readAt: integer('read_at', { mode: 'timestamp' })
 });

@@ -10,6 +10,63 @@ export interface ParsedArticle {
 	favicon: string | null;
 	coverImage: string | null;
 	readingTimeMinutes: number;
+	isPaywalled: boolean;
+}
+
+// Params that are purely tracking/analytics and safe to strip
+const TRACKING_PARAMS = new Set([
+	'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
+	'fbclid', 'gclid', 'gclsrc', 'dclid', 'gbraid', 'wbraid',
+	'mc_cid', 'mc_eid', 'mkt_tok',
+	'_ga', '_gl', '_hsenc', '_hsmi',
+	'igshid', 'msclkid', 'twclid',
+]);
+
+export function cleanUrl(rawUrl: string): string {
+	const u = new URL(rawUrl);
+	u.hash = '';
+	for (const key of [...u.searchParams.keys()]) {
+		if (TRACKING_PARAMS.has(key) || key.startsWith('utm_')) {
+			u.searchParams.delete(key);
+		}
+	}
+	return u.toString();
+}
+
+function detectPaywall(doc: Document, article: { textContent?: string } | null): boolean {
+	// Standard structured-data signals
+	const contentTier = doc.querySelector('meta[property="og:article:content_tier"]')?.getAttribute('content');
+	if (contentTier === 'metered' || contentTier === 'locked') return true;
+
+	for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
+		try {
+			const data = JSON.parse(script.textContent ?? '');
+			const accessible = data.isAccessibleForFree ?? data['isAccessibleForFree'];
+			if (accessible === false || accessible === 'False') return true;
+		} catch { /* ignore */ }
+	}
+
+	// DOM-based signals — paywall containers
+	if (doc.querySelector([
+		'[class*="paywall"]',
+		'[id*="paywall"]',
+		'[class*="subscriber-only"]',
+		'[class*="premium-content"]',
+		'[class*="paid-content"]',
+		'[data-testid*="paywall"]',
+	].join(','))) return true;
+
+	// Very short extracted text strongly suggests truncation
+	const wordCount = (article?.textContent ?? '').trim().split(/\s+/).filter(Boolean).length;
+	if (wordCount > 0 && wordCount < 80) {
+		// Only flag as paywalled if there are also subscription-hint keywords visible
+		const bodyText = doc.body?.textContent?.toLowerCase() ?? '';
+		if (/subscribe|subscription|sign in to read|member.{0,20}only|unlock|premium/.test(bodyText)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function estimateReadingTime(text: string): number {
@@ -31,8 +88,10 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 	const dom = new JSDOM(html, { url });
 	const doc = dom.window.document;
 
-	const reader = new Readability(doc);
+	const reader = new Readability(doc.cloneNode(true) as Document);
 	const article = reader.parse();
+
+	const isPaywalled = detectPaywall(doc, article);
 
 	const title =
 		article?.title ||
@@ -81,6 +140,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 		siteName,
 		favicon,
 		coverImage,
-		readingTimeMinutes
+		readingTimeMinutes,
+		isPaywalled,
 	};
 }

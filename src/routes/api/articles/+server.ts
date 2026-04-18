@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
-import { parseArticle } from '$lib/server/parser';
+import { parseArticle, cleanUrl } from '$lib/server/parser';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -24,22 +24,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		error(400, 'Only HTTP/HTTPS URLs are supported');
 	}
 
-	parsedUrl.search = '';
-	parsedUrl.hash = '';
-	const cleanUrl = parsedUrl.toString();
+	const normalized = cleanUrl(parsedUrl.toString());
 
 	const [existing] = await db
 		.select({ id: articles.id })
 		.from(articles)
-		.where(and(eq(articles.userId, locals.user.id), eq(articles.url, cleanUrl)));
+		.where(and(eq(articles.userId, locals.user.id), eq(articles.url, normalized)));
 
 	if (existing) error(409, { message: 'You already saved this article.' });
 
 	try {
-		const parsed = await parseArticle(cleanUrl);
+		const parsed = await parseArticle(normalized);
 		const [article] = await db
 			.insert(articles)
-			.values({ ...parsed, url: cleanUrl, userId: locals.user.id })
+			.values({ ...parsed, url: normalized, userId: locals.user.id })
 			.returning();
 		return json(article, { status: 201 });
 	} catch (e) {

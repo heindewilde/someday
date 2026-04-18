@@ -124,6 +124,7 @@
 			{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 			{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min read</span>{/if}
 			{#if savedDate}<span class="sep">·</span><span class="rtime">Saved {savedDate}</span>{/if}
+			{#if article.isPaywalled}<span class="paywall-badge">Paywall</span>{/if}
 		</div>
 
 		<h1 class="article-title">{article.title}</h1>
@@ -271,6 +272,16 @@
 	.site, .author { font-size: 0.8125rem; color: var(--color-muted); }
 	.rtime { font-size: 0.8125rem; color: var(--color-subtle); }
 	.sep { font-size: 0.8125rem; color: var(--color-subtle); }
+
+	.paywall-badge {
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: #92400e;
+		background: #fef3c7;
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
+	}
 
 	.article-title {
 		font-size: 1.75rem;

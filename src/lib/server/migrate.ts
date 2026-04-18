@@ -133,4 +133,10 @@ export function migrate() {
 	} catch {
 		// Already dropped or never existed
 	}
+
+	try {
+		db.run(sql`ALTER TABLE articles ADD COLUMN is_paywalled INTEGER DEFAULT 0`);
+	} catch {
+		// Already exists
+	}
 }

@@ -545,6 +545,7 @@
 							<span class="site">{article.siteName ?? new URL(article.url).hostname}</span>
 							{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 							{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min</span>{/if}
+							{#if article.isPaywalled}<span class="paywall-badge">Paywall</span>{/if}
 						</div>
 
 						<div class="card-body">
@@ -1106,6 +1107,16 @@
 
 	.site, .author { font-size: 0.75rem; color: var(--color-muted); }
 	.rtime { font-size: 0.75rem; color: var(--color-subtle); }
+
+	.paywall-badge {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: #92400e;
+		background: #fef3c7;
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
+	}
 	.sep { font-size: 0.75rem; color: var(--color-subtle); }
 
 	.card-body {
