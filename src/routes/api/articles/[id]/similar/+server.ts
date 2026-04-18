@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { db, sqlite } from '$lib/server/db';
+import { db, client } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -60,15 +60,15 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const query = buildFTSQuery(target.title, target.content);
 	if (!query) return json([]);
 
-	const rows = sqlite.prepare(`
-		SELECT article_id
-		FROM articles_fts
-		WHERE articles_fts MATCH ?
-		  AND user_id = ?
-		  AND article_id != ?
-		ORDER BY rank
-		LIMIT 5
-	`).all(query, locals.user.id, params.id) as { article_id: string }[];
+	const result = await client.execute({
+		sql: `SELECT article_id FROM articles_fts
+		      WHERE articles_fts MATCH ?
+		        AND user_id = ?
+		        AND article_id != ?
+		      ORDER BY rank LIMIT 5`,
+		args: [query, locals.user.id, params.id],
+	});
+	const rows = result.rows as unknown as { article_id: string }[];
 
 	if (rows.length === 0) return json([]);
 

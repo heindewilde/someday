@@ -1,8 +1,7 @@
-import { db } from './db';
-import { sql } from 'drizzle-orm';
+import { client } from './db';
 
-export function migrate() {
-	db.run(sql`
+export async function migrate() {
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
@@ -12,7 +11,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS sessions (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -20,7 +19,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS collections (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -30,7 +29,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS articles (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -51,7 +50,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS article_collections (
 			article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
 			collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
@@ -59,7 +58,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS tags (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -68,7 +67,7 @@ export function migrate() {
 		)
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TABLE IF NOT EXISTS article_tags (
 			article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
 			tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
@@ -77,7 +76,7 @@ export function migrate() {
 	`);
 
 	// Full-text search index
-	db.run(sql`
+	await client.execute(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
 			article_id UNINDEXED,
 			user_id UNINDEXED,
@@ -87,7 +86,7 @@ export function migrate() {
 	`);
 
 	// Populate index for any articles not yet indexed
-	db.run(sql`
+	await client.execute(`
 		INSERT INTO articles_fts(article_id, user_id, title, body)
 		SELECT id, user_id, title, COALESCE(content, '')
 		FROM articles
@@ -95,20 +94,20 @@ export function migrate() {
 	`);
 
 	// Keep index in sync via triggers
-	db.run(sql`
+	await client.execute(`
 		CREATE TRIGGER IF NOT EXISTS articles_fts_ai AFTER INSERT ON articles BEGIN
 			INSERT INTO articles_fts(article_id, user_id, title, body)
 			VALUES (new.id, new.user_id, new.title, COALESCE(new.content, ''));
 		END
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TRIGGER IF NOT EXISTS articles_fts_ad AFTER DELETE ON articles BEGIN
 			DELETE FROM articles_fts WHERE article_id = old.id;
 		END
 	`);
 
-	db.run(sql`
+	await client.execute(`
 		CREATE TRIGGER IF NOT EXISTS articles_fts_au AFTER UPDATE ON articles BEGIN
 			DELETE FROM articles_fts WHERE article_id = old.id;
 			INSERT INTO articles_fts(article_id, user_id, title, body)
@@ -118,24 +117,23 @@ export function migrate() {
 
 	// Migrations for existing databases
 	try {
-		// Migrate old single-collection data to the junction table
-		db.run(sql`
+		await client.execute(`
 			INSERT OR IGNORE INTO article_collections (article_id, collection_id)
 			SELECT id, collection_id FROM articles WHERE collection_id IS NOT NULL
 		`);
-		db.run(sql`ALTER TABLE articles DROP COLUMN collection_id`);
+		await client.execute(`ALTER TABLE articles DROP COLUMN collection_id`);
 	} catch {
 		// Column doesn't exist or already migrated — safe to ignore
 	}
 
 	try {
-		db.run(sql`ALTER TABLE collections DROP COLUMN icon`);
+		await client.execute(`ALTER TABLE collections DROP COLUMN icon`);
 	} catch {
 		// Already dropped or never existed
 	}
 
 	try {
-		db.run(sql`ALTER TABLE articles ADD COLUMN is_paywalled INTEGER DEFAULT 0`);
+		await client.execute(`ALTER TABLE articles ADD COLUMN is_paywalled INTEGER DEFAULT 0`);
 	} catch {
 		// Already exists
 	}
