@@ -164,4 +164,9 @@
 		border-top: 1px solid var(--color-border);
 		padding-top: 0.75rem;
 	}
+
+	@media (max-width: 480px) {
+		.modal { padding: 1.25rem 1rem; }
+		dt { min-width: 5.5rem; }
+	}
 </style>

@@ -219,6 +219,7 @@
 		align-items: center;
 		gap: 0.375rem;
 		flex-wrap: wrap;
+		min-width: 0;
 	}
 
 	.act {
@@ -413,6 +414,38 @@
 		:global(.prose pre) {
 			white-space: pre-wrap;
 			word-break: break-word;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.topbar {
+			padding: 0.5rem 0.75rem;
+			gap: 0.5rem;
+		}
+
+		.topbar-actions {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			gap: 0.25rem;
+		}
+
+		.topbar-actions::-webkit-scrollbar { display: none; }
+
+		.act {
+			padding: 0.4em 0.65em;
+			white-space: nowrap;
+			flex-shrink: 0;
+			min-height: 2rem;
+		}
+
+		.reader {
+			padding: 1.5rem 1rem 4rem;
+		}
+
+		.article-title {
+			font-size: 1.375rem;
 		}
 	}
 </style>

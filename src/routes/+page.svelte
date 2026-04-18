@@ -28,6 +28,7 @@
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let showStats = $state(false);
 	let showCollectionPicker = $state<string | null>(null);
+	let sidebarOpen = $state(false);
 	let hoveredCollectionId = $state<string | null>(null);
 	let showCollectionMenu = $state<string | null>(null);
 	let renamingCollectionId = $state<string | null>(null);
@@ -72,6 +73,7 @@
 
 	// --- Navigation ---
 	function navTo(params: Record<string, string | null>) {
+		sidebarOpen = false;
 		const u = new URL(page.url);
 		for (const [k, v] of Object.entries(params)) {
 			if (v === null) u.searchParams.delete(k);
@@ -338,7 +340,20 @@
 <svelte:head><title>Someday</title></svelte:head>
 
 <div class="app">
-	<aside class="sidebar">
+	<header class="mobile-header">
+		<button class="hamburger" onclick={() => sidebarOpen = !sidebarOpen} aria-label="Toggle menu">
+			<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+				<path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+			</svg>
+		</button>
+		<span class="logo-text">someday</span>
+	</header>
+
+	{#if sidebarOpen}
+		<div class="sidebar-overlay" onclick={() => sidebarOpen = false} role="presentation"></div>
+	{/if}
+
+	<aside class="sidebar" class:open={sidebarOpen}>
 		<div class="sidebar-header">
 			<div class="logo">
 				<span class="logo-text">someday</span>
@@ -1496,5 +1511,124 @@
 	.stats-unit {
 		font-size: 0.75rem;
 		color: var(--color-muted);
+	}
+
+	/* ── Mobile header ── */
+	.mobile-header {
+		display: none;
+	}
+
+	.hamburger {
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border: none;
+		background: none;
+		color: var(--color-muted);
+		cursor: pointer;
+		border-radius: 6px;
+		flex-shrink: 0;
+	}
+
+	.hamburger:hover { color: var(--color-text); }
+
+	.sidebar-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgb(0 0 0 / 0.4);
+		z-index: 99;
+	}
+
+	/* ── Touch devices: always show hover-hidden elements ── */
+	@media (hover: none) {
+		.tag-x { opacity: 1; }
+		.tag-add { opacity: 1; }
+	}
+
+	/* ── Mobile layout ── */
+	@media (max-width: 768px) {
+		.mobile-header {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 52px;
+			z-index: 90;
+			background: var(--color-surface);
+			border-bottom: 1px solid var(--color-border);
+			padding: 0 1rem;
+		}
+
+		.sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			height: 100vh;
+			z-index: 100;
+			transform: translateX(-100%);
+			transition: transform 0.22s ease;
+		}
+
+		.sidebar.open {
+			transform: translateX(0);
+			box-shadow: 4px 0 24px rgb(0 0 0 / 0.12);
+		}
+
+		.main {
+			padding: 1rem 1rem 4rem;
+			padding-top: calc(52px + 1rem);
+			max-width: 100%;
+		}
+
+		/* Search: taller touch target, no iOS zoom */
+		.search-input {
+			padding: 0.75rem 0;
+			font-size: 1rem;
+		}
+
+		/* Filter bar: horizontal scroll, no wrap */
+		.filter-bar {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			padding-bottom: 0.125rem;
+		}
+
+		.filter-bar::-webkit-scrollbar { display: none; }
+
+		/* Hide thumbnail on narrow screens */
+		.thumb { display: none; }
+
+		/* Card actions: scrollable row */
+		.card-actions {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			gap: 0.375rem;
+		}
+
+		.card-actions::-webkit-scrollbar { display: none; }
+
+		/* Bigger touch targets */
+		.act {
+			padding: 0.45em 0.75em;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+
+		/* Corner buttons: sit higher to avoid toaster overlap */
+		.corner-btns { bottom: 1rem; right: 1rem; }
+
+		/* Collection picker: full-width on mobile */
+		.col-picker-dropdown {
+			right: auto;
+			left: 0;
+		}
 	}
 </style>

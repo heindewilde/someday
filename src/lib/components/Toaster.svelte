@@ -23,7 +23,7 @@
 <style>
 	.toaster {
 		position: fixed;
-		bottom: 1.25rem;
+		bottom: 4.5rem;
 		right: 1.25rem;
 		display: flex;
 		flex-direction: column;
@@ -46,6 +46,19 @@
 		max-width: 360px;
 		pointer-events: all;
 		animation: slide-in 0.15s ease;
+	}
+
+	@media (max-width: 768px) {
+		.toaster {
+			bottom: 1.25rem;
+			right: 1rem;
+			left: 1rem;
+		}
+
+		.toast {
+			min-width: unset;
+			max-width: unset;
+		}
 	}
 
 	@keyframes slide-in {
