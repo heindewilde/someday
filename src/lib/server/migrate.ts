@@ -153,4 +153,17 @@ export async function migrate() {
 			created_at INTEGER
 		)
 	`);
+
+	await client.execute(`
+		CREATE TABLE IF NOT EXISTS highlights (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+			selected_text TEXT NOT NULL,
+			start_offset INTEGER NOT NULL,
+			end_offset INTEGER NOT NULL,
+			note TEXT,
+			created_at INTEGER
+		)
+	`);
 }

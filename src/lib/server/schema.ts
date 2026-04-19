@@ -68,3 +68,14 @@ export const reminders = sqliteTable('reminders', {
 	remindAt: integer('remind_at', { mode: 'timestamp' }).notNull(),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
+
+export const highlights = sqliteTable('highlights', {
+	id: text('id').primaryKey().$defaultFn(() => createId()),
+	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	articleId: text('article_id').notNull().references(() => articles.id, { onDelete: 'cascade' }),
+	selectedText: text('selected_text').notNull(),
+	startOffset: integer('start_offset').notNull(),
+	endOffset: integer('end_offset').notNull(),
+	note: text('note'),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
