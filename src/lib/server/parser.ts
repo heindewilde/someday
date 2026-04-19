@@ -158,125 +158,59 @@ function isXUrl(url: string): boolean {
 	return /^(www\.)?(twitter\.com|x\.com)$/.test(hostname);
 }
 
-function isXArticleUrl(url: string): boolean {
-	return isXUrl(url) && /\/article\//.test(new URL(url).pathname);
-}
+async function parseXUrl(url: string): Promise<ParsedArticle> {
+	const { pathname } = new URL(url);
+	const username = pathname.split('/').filter(Boolean)[0] ?? 'unknown';
+	const isArticle = /\/article\//.test(pathname);
 
-// Use GET (not HEAD) — t.co and some redirectors drop HEAD requests
-async function resolveRedirect(url: string): Promise<string> {
-	try {
-		const res = await fetch(url, {
-			redirect: 'follow',
-			signal: AbortSignal.timeout(5000),
-			headers: { 'User-Agent': 'Mozilla/5.0' },
-		});
-		return res.url;
-	} catch {
-		return url;
+	if (isArticle) {
+		return {
+			title: `Article by ${username}`,
+			description: null,
+			content: null,
+			author: username,
+			siteName: 'X',
+			favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+			coverImage: null,
+			readingTimeMinutes: 1,
+			isPaywalled: false,
+			source: null,
+		};
 	}
-}
 
-const X_FAVICON = 'https://abs.twimg.com/favicons/twitter.3.ico';
-
-function xFallback(title = 'X post', author: string | null = null): ParsedArticle {
-	return {
-		title,
-		description: null,
-		content: null,
-		author,
-		siteName: 'X',
-		favicon: X_FAVICON,
-		coverImage: null,
-		readingTimeMinutes: 1,
-		isPaywalled: false,
-		source: null,
-	};
-}
-
-// Fetch an X/Twitter page and extract og metadata. X pre-renders og tags for crawlers.
-async function fetchXMeta(url: string, fallbackAuthor: string | null = null): Promise<ParsedArticle | null> {
-	for (const ua of [
-		'Mozilla/5.0 (compatible; Twitterbot/1.0)',
-		'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-	]) {
-		try {
-			const res = await fetch(url, {
-				headers: { 'User-Agent': ua, 'Accept': 'text/html' },
-				signal: AbortSignal.timeout(8000),
-			});
-			if (!res.ok) continue;
-			const doc = new JSDOM(await res.text(), { url }).window.document;
-			const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
-			const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim();
-			const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null;
-			const author =
-				doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ??
-				fallbackAuthor;
-			if (ogTitle) {
-				return {
-					title: ogTitle,
-					description: ogDesc ?? null,
-					content: null,
-					author,
-					siteName: 'X',
-					favicon: X_FAVICON,
-					coverImage: ogImage,
-					readingTimeMinutes: 1,
-					isPaywalled: false,
-					source: null,
-				};
-			}
-		} catch { /* try next UA */ }
-	}
-	return null;
-}
-
-async function parseXPost(url: string): Promise<ParsedArticle> {
-	let data: { html?: string; author_name?: string } = {};
+	// Tweet — use oEmbed for author name and tweet text
 	try {
 		const res = await fetch(
 			`https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`,
 			{ signal: AbortSignal.timeout(10000) }
 		);
-		if (!res.ok) return xFallback();
-		data = await res.json();
-	} catch {
-		return xFallback();
-	}
-
-	const dom = new JSDOM(data.html ?? '');
-	const tweetP = dom.window.document.querySelector('blockquote p');
-	const tweetText = tweetP?.textContent?.trim() ?? '';
-	const authorName = data.author_name ?? null;
-	const blockquote = dom.window.document.querySelector('blockquote');
-
-	// If the tweet body has little or no text beyond a link, follow the link.
-	const textWithoutUrls = tweetText.replace(/https?:\/\/\S+/g, '').trim();
-	const firstLink = tweetP?.querySelector('a[href]');
-	const linkedHref = firstLink?.getAttribute('href') ?? '';
-	const isLinkOnly = linkedHref && textWithoutUrls.length < 30;
-
-	if (isLinkOnly) {
-		const resolved = await resolveRedirect(linkedHref);
-
-		if (!isXUrl(resolved)) {
-			// External article — parse normally
-			try { return await parseArticle(resolved); } catch { /* fall through */ }
-		} else {
-			// X Article or thread — try to get og metadata
-			const meta = await fetchXMeta(resolved, authorName);
-			if (meta) return meta;
+		if (res.ok) {
+			const data = await res.json();
+			const tweetP = new JSDOM(data.html ?? '').window.document.querySelector('blockquote p');
+			const tweetText = tweetP?.textContent?.trim() ?? '';
+			const authorName = data.author_name ?? username;
+			return {
+				title: `Tweet by ${authorName}`,
+				description: tweetText || null,
+				content: null,
+				author: authorName,
+				siteName: 'X',
+				favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+				coverImage: null,
+				readingTimeMinutes: 1,
+				isPaywalled: false,
+				source: null,
+			};
 		}
-	}
+	} catch { /* fall through */ }
 
-	// Regular tweet
 	return {
-		title: authorName ? `Tweet by ${authorName}` : 'X post',
-		description: tweetText || null,
-		content: blockquote ? blockquote.outerHTML : null,
-		author: authorName,
+		title: `Tweet by ${username}`,
+		description: null,
+		content: null,
+		author: username,
 		siteName: 'X',
-		favicon: X_FAVICON,
+		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 		coverImage: null,
 		readingTimeMinutes: 1,
 		isPaywalled: false,
@@ -285,8 +219,7 @@ async function parseXPost(url: string): Promise<ParsedArticle> {
 }
 
 export async function parseArticle(url: string): Promise<ParsedArticle> {
-	if (isXArticleUrl(url)) return (await fetchXMeta(url)) ?? xFallback();
-	if (isXUrl(url)) return parseXPost(url);
+	if (isXUrl(url)) return parseXUrl(url);
 
 	let response: Response;
 	try {
