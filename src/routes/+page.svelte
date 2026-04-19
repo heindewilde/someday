@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import { page } from '$app/state';
+	import { page, navigating } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
 	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, Globe, ChevronDown } from 'lucide-svelte';
@@ -85,6 +85,19 @@
 	});
 
 	const stats = $derived(data.counts.readingStats);
+
+	// Poll while any freshly-saved article is still being parsed in the background.
+	const hasParsing = $derived(articles.some(a => a.source === 'parsing'));
+	$effect(() => {
+		if (!hasParsing) return;
+		const t = setInterval(() => invalidateAll(), 2000);
+		return () => clearInterval(t);
+	});
+
+	// Show skeleton cards while a library navigation is in flight (filter/page/search).
+	const showSkeleton = $derived(
+		navigating.to?.route.id === '/' && navigating.from?.route.id === '/'
+	);
 
 	function fmtTime(minutes: number) {
 		if (minutes < 60) return `${minutes} min`;
@@ -605,8 +618,16 @@
 			<span class="count">{data.total}</span>
 		</div>
 
-		<div class="article-list">
-			{#if data.articles.length === 0}
+		<div class="article-list" class:list-loading={showSkeleton}>
+			{#if showSkeleton}
+				{#each Array.from({ length: Math.min(6, articles.length || 6) }) as _, i (i)}
+					<div class="card skel" aria-hidden="true">
+						<div class="skel-line skel-meta"></div>
+						<div class="skel-line skel-title"></div>
+						<div class="skel-line skel-desc"></div>
+					</div>
+				{/each}
+			{:else if data.articles.length === 0}
 				<div class="empty">
 					{#if data.q}
 						<p class="empty-title">No results for "{data.q}"</p>
@@ -649,6 +670,7 @@
 							{#if article.source === 'email'}<span class="source-badge source-email">Email</span>{/if}
 							{#if article.source === 'product'}<span class="source-badge source-product">Product</span>{/if}
 							{#if article.source === 'pdf'}<span class="source-badge source-pdf">PDF</span>{/if}
+							{#if article.source === 'parsing'}<span class="source-badge source-parsing">Parsing…</span>{/if}
 						</div>
 
 						<div class="card-body">
@@ -1274,6 +1296,27 @@
 		background: var(--color-bg);
 	}
 
+	.card.skel { pointer-events: none; }
+	.skel-line {
+		background: linear-gradient(
+			90deg,
+			var(--color-border) 0%,
+			var(--color-surface) 50%,
+			var(--color-border) 100%
+		);
+		background-size: 200% 100%;
+		animation: skel-shimmer 1.2s ease-in-out infinite;
+		border-radius: 3px;
+		height: 0.75rem;
+	}
+	.skel-meta { width: 28%; height: 0.65rem; margin-bottom: 0.6rem; opacity: 0.7; }
+	.skel-title { width: 65%; height: 0.95rem; margin-bottom: 0.5rem; }
+	.skel-desc { width: 92%; height: 0.7rem; }
+	@keyframes skel-shimmer {
+		0% { background-position: 100% 0; }
+		100% { background-position: -100% 0; }
+	}
+
 	.card.selected {
 		border-color: var(--color-text);
 		background: var(--color-bg);
@@ -1336,6 +1379,26 @@
 		color: var(--color-muted);
 		background: var(--color-border);
 		border-color: var(--color-border-strong);
+	}
+	.source-parsing {
+		color: var(--color-muted);
+		background: var(--color-surface);
+		border-color: var(--color-border);
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+	}
+	.source-parsing::before {
+		content: '';
+		width: 0.5em;
+		height: 0.5em;
+		border-radius: 50%;
+		background: currentColor;
+		animation: parsing-pulse 1.1s ease-in-out infinite;
+	}
+	@keyframes parsing-pulse {
+		0%, 100% { opacity: 0.35; }
+		50% { opacity: 1; }
 	}
 	.sep { font-size: 0.75rem; color: var(--color-subtle); }
 

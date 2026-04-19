@@ -232,6 +232,11 @@ export async function migrate() {
 		`CREATE INDEX IF NOT EXISTS idx_articles_user_domain ON articles(user_id, domain)`
 	);
 
+	// Clear stale parsing sentinels from prior crashed workers — on boot any
+	// row still marked 'parsing' can't complete (the worker is gone), so reset
+	// so the UI doesn't poll forever.
+	await client.execute(`UPDATE articles SET source = NULL WHERE source = 'parsing'`);
+
 	// Backfill word_count and domain for existing rows. Runs in the background
 	// so server startup isn't blocked; idempotent (only touches rows missing
 	// values). The library page degrades gracefully until backfill completes.
@@ -240,10 +245,16 @@ export async function migrate() {
 
 async function backfillDerivedColumns() {
 	try {
+		// Only backfill rows that can actually be improved:
+		//   - missing domain (will be derived from url)
+		//   - word_count is 0 but content has actual bytes to count
+		// Rows with content IS NULL or '' legitimately have word_count=0 and
+		// don't need re-backfilling every boot.
 		const { rows } = await client.execute(
 			`SELECT id, url, content FROM articles
 			 WHERE (domain IS NULL AND url IS NOT NULL)
-			    OR (word_count IS NULL OR word_count = 0)`
+			    OR ((word_count IS NULL OR word_count = 0)
+			        AND content IS NOT NULL AND length(content) > 0)`
 		);
 		if (rows.length === 0) return;
 
