@@ -13,8 +13,8 @@
 
 	async function fetchSimilar() {
 		if (similar !== null) { showSimilar = !showSimilar; return; }
+		if (loadingSimilar) return;
 		loadingSimilar = true;
-		showSimilar = true;
 		try {
 			const res = await fetch(`/api/articles/${article.id}/similar`);
 			similar = res.ok ? await res.json() : [];
@@ -22,6 +22,7 @@
 			similar = [];
 		} finally {
 			loadingSimilar = false;
+			showSimilar = true;
 		}
 	}
 
@@ -120,9 +121,7 @@
 			<div class="similar-wrap">
 				<button class="act" class:act-on={showSimilar} onclick={fetchSimilar}>
 					<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-						<circle cx="5.5" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3"/>
-						<circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/>
-						<path d="M8 5.5h1.5M5.5 8V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+						<path d="M7.5 1.5L9 6L13.5 7.5L9 9L7.5 13.5L6 9L1.5 7.5L6 6Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
 					</svg>
 					{loadingSimilar ? '…' : 'Similar'}
 				</button>
