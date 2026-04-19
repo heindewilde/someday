@@ -137,4 +137,10 @@ export async function migrate() {
 	} catch {
 		// Already exists
 	}
+
+	try {
+		await client.execute(`ALTER TABLE articles ADD COLUMN source TEXT`);
+	} catch {
+		// Already exists
+	}
 }

@@ -29,6 +29,7 @@
 	let showStats = $state(false);
 	let showCollectionPicker = $state<string | null>(null);
 	let sidebarOpen = $state(false);
+	let saving = $state(false);
 	let hoveredCollectionId = $state<string | null>(null);
 	let showCollectionMenu = $state<string | null>(null);
 	let renamingCollectionId = $state<string | null>(null);
@@ -433,7 +434,6 @@
 							class:active={data.activeCollection === col.id}
 							onclick={() => navTo({ collection: col.id, tag: null })}
 						>
-							<span>{col.icon}</span>
 							{col.name}
 							{#if col.articleCount > 0}
 								<span class="badge">{col.articleCount}</span>
@@ -577,10 +577,13 @@
 							{#if article.favicon}
 								<img src={article.favicon} alt="" class="favicon" width="13" height="13" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 							{/if}
-							<span class="site">{article.siteName ?? new URL(article.url).hostname}</span>
+							<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : '')}</span>
 							{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 							{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min</span>{/if}
 							{#if article.isPaywalled}<span class="paywall-badge">Paywall</span>{/if}
+							{#if article.source === 'email'}<span class="source-badge source-email">Email</span>{/if}
+							{#if article.source === 'product'}<span class="source-badge source-product">Product</span>{/if}
+							{#if article.source === 'pdf'}<span class="source-badge source-pdf">PDF</span>{/if}
 						</div>
 
 						<div class="card-body">
@@ -690,10 +693,12 @@
 									Remove
 								</button>
 							{/if}
+							{#if article.url}
 							<a class="act" href={article.url} target="_blank" rel="noopener">
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
 								Original
 							</a>
+							{/if}
 							<button class="act act-del" onclick={() => deleteArticle(article.id)}>
 								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 								Delete
@@ -1156,6 +1161,29 @@
 		border-radius: 3px;
 		padding: 0.1em 0.4em;
 		margin-left: 0.25rem;
+	}
+	.source-badge {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
+		border: 1px solid;
+	}
+	.source-email {
+		color: var(--color-info);
+		background: var(--color-info-bg);
+		border-color: var(--color-info-border);
+	}
+	.source-product {
+		color: var(--color-product);
+		background: var(--color-product-bg);
+		border-color: var(--color-product-border);
+	}
+	.source-pdf {
+		color: var(--color-muted);
+		background: var(--color-border);
+		border-color: var(--color-border-strong);
 	}
 	.sep { font-size: 0.75rem; color: var(--color-subtle); }
 

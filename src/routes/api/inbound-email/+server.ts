@@ -1,0 +1,70 @@
+import { json } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
+import { articles, users } from '$lib/server/schema';
+import { sanitizeEmailHtml, estimateReadingTime } from '$lib/server/parser';
+import { env } from '$env/dynamic/private';
+import { eq } from 'drizzle-orm';
+import type { RequestHandler } from './$types';
+
+interface PostmarkPayload {
+	From: string;
+	FromFull: { Email: string; Name: string };
+	Subject: string;
+	HtmlBody?: string;
+	TextBody?: string;
+	MessageID: string;
+}
+
+export const POST: RequestHandler = async ({ request, url }) => {
+	// Always return 200 — non-2xx triggers Postmark to retry 25× over 24 hours
+	const secret = url.searchParams.get('secret');
+	if (!env.INBOUND_EMAIL_SECRET || secret !== env.INBOUND_EMAIL_SECRET) {
+		return json({ ok: false, reason: 'unauthorized' });
+	}
+
+	let payload: PostmarkPayload;
+	try {
+		payload = await request.json();
+	} catch {
+		return json({ ok: false, reason: 'invalid_json' });
+	}
+
+	const fromEmail = (payload.FromFull?.Email ?? payload.From ?? '').toLowerCase().trim();
+	const fromName = payload.FromFull?.Name || null;
+	if (!fromEmail) return json({ ok: false, reason: 'no_from' });
+
+	const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, fromEmail));
+	if (!user) return json({ ok: false, reason: 'unknown_sender' });
+
+	const subject = (payload.Subject ?? '').trim() || '(no subject)';
+	const fromDomain = fromEmail.includes('@') ? fromEmail.split('@')[1] : undefined;
+
+	let content: string | null = null;
+	let readingTimeMinutes = 1;
+
+	if (payload.HtmlBody?.trim()) {
+		content = sanitizeEmailHtml(payload.HtmlBody);
+		const text = payload.TextBody?.trim() || content.replace(/<[^>]+>/g, ' ');
+		readingTimeMinutes = estimateReadingTime(text);
+	} else if (payload.TextBody?.trim()) {
+		const esc = payload.TextBody
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;');
+		content = `<pre style="white-space:pre-wrap;word-break:break-word;">${esc}</pre>`;
+		readingTimeMinutes = estimateReadingTime(payload.TextBody);
+	}
+
+	await db.insert(articles).values({
+		userId: user.id,
+		url: null,
+		title: subject,
+		content,
+		author: fromName,
+		siteName: fromName ?? fromDomain ?? fromEmail,
+		source: 'email',
+		readingTimeMinutes,
+	});
+
+	return json({ ok: true });
+};

@@ -59,6 +59,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		isArchived: articles.isArchived,
 		isFavorite: articles.isFavorite,
 		isPaywalled: articles.isPaywalled,
+		source: articles.source,
 		savedAt: articles.savedAt
 	};
 

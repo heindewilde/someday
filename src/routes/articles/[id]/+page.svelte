@@ -6,7 +6,7 @@
 	// svelte-ignore state_referenced_locally
 	let article = $state({ ...data.article });
 
-	type SimilarArticle = { id: string; title: string; url: string; siteName: string | null; favicon: string | null; readingTimeMinutes: number | null; isRead: boolean | null };
+	type SimilarArticle = { id: string; title: string; url: string | null; siteName: string | null; favicon: string | null; readingTimeMinutes: number | null; isRead: boolean | null };
 	let similar = $state<SimilarArticle[] | null>(null);
 	let loadingSimilar = $state(false);
 	let showSimilar = $state(false);
@@ -95,12 +95,14 @@
 				</svg>
 				{article.isFavorite ? 'Favorited' : 'Favorite'}
 			</button>
+			{#if article.url}
 			<a class="act" href={article.url} target="_blank" rel="noopener">
 				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
 					<path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
 				</svg>
 				Original
 			</a>
+			{/if}
 			<button class="act" onclick={() => window.print()}>
 				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
 					<path d="M3.5 5V2.5h8V5M3.5 11.5H2a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v5a.5.5 0 01-.5.5h-1.5M3.5 9.5h8v3h-8v-3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
@@ -128,11 +130,14 @@
 				<img src={article.favicon} alt="" class="favicon" width="14" height="14"
 					onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 			{/if}
-			<span class="site">{article.siteName ?? new URL(article.url).hostname}</span>
+			<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : '')}</span>
 			{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
 			{#if article.readingTimeMinutes}<span class="sep">·</span><span class="rtime">{article.readingTimeMinutes} min read</span>{/if}
 			{#if savedDate}<span class="sep">·</span><span class="rtime">Saved {savedDate}</span>{/if}
 			{#if article.isPaywalled}<span class="paywall-badge">Paywall</span>{/if}
+			{#if article.source === 'email'}<span class="source-badge source-email">Email</span>{/if}
+			{#if article.source === 'product'}<span class="source-badge source-product">Product</span>{/if}
+			{#if article.source === 'pdf'}<span class="source-badge source-pdf">PDF</span>{/if}
 		</div>
 
 		<h1 class="article-title">{article.title}</h1>
@@ -149,7 +154,7 @@
 		{:else}
 			<div class="no-content">
 				<p>No saved content for this article.</p>
-				<a href={article.url} target="_blank" rel="noopener">Open original →</a>
+				{#if article.url}<a href={article.url} target="_blank" rel="noopener">Open original →</a>{/if}
 			</div>
 		{/if}
 
@@ -166,7 +171,7 @@
 									<img src={s.favicon} alt="" width="12" height="12" class="similar-fav"
 										onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 								{/if}
-								<span class="similar-site">{s.siteName ?? new URL(s.url).hostname}</span>
+								<span class="similar-site">{s.siteName ?? (s.url ? new URL(s.url).hostname : '')}</span>
 								{#if s.readingTimeMinutes}
 									<span class="similar-time">· {s.readingTimeMinutes} min</span>
 								{/if}
@@ -291,6 +296,29 @@
 		border-radius: 3px;
 		padding: 0.1em 0.4em;
 		margin-left: 0.25rem;
+	}
+	.source-badge {
+		font-size: 0.75rem;
+		font-weight: 500;
+		border-radius: 3px;
+		padding: 0.1em 0.4em;
+		margin-left: 0.25rem;
+		border: 1px solid;
+	}
+	.source-email {
+		color: var(--color-info);
+		background: var(--color-info-bg);
+		border-color: var(--color-info-border);
+	}
+	.source-product {
+		color: var(--color-product);
+		background: var(--color-product-bg);
+		border-color: var(--color-product-border);
+	}
+	.source-pdf {
+		color: var(--color-muted);
+		background: var(--color-border);
+		border-color: var(--color-border-strong);
 	}
 
 	.article-title {
