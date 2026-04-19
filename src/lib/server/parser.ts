@@ -153,7 +153,62 @@ function extractMeta(doc: Document, url: string): Omit<ParsedArticle, 'content' 
 	return { title, description, coverImage, siteName, favicon, author: null };
 }
 
+function isXUrl(url: string): boolean {
+	const { hostname } = new URL(url);
+	return /^(www\.)?(twitter\.com|x\.com)$/.test(hostname);
+}
+
+async function parseXPost(url: string): Promise<ParsedArticle> {
+	const fallback: ParsedArticle = {
+		title: url,
+		description: null,
+		content: null,
+		author: null,
+		siteName: 'X',
+		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+		coverImage: null,
+		readingTimeMinutes: 1,
+		isPaywalled: false,
+		source: null,
+	};
+
+	let data: { html?: string; author_name?: string } = {};
+	try {
+		const res = await fetch(
+			`https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`,
+			{ signal: AbortSignal.timeout(10000) }
+		);
+		if (!res.ok) return fallback;
+		data = await res.json();
+	} catch {
+		return fallback;
+	}
+
+	const dom = new JSDOM(data.html ?? '');
+	const tweetP = dom.window.document.querySelector('blockquote p');
+	const tweetText = tweetP?.textContent?.trim() ?? '';
+
+	// Rebuild safe content HTML from oEmbed (strip the Twitter widget script)
+	const blockquote = dom.window.document.querySelector('blockquote');
+	const contentHtml = blockquote ? blockquote.outerHTML : null;
+
+	return {
+		title: tweetText.slice(0, 280) || data.author_name || 'X post',
+		description: tweetText || null,
+		content: contentHtml,
+		author: data.author_name ?? null,
+		siteName: 'X',
+		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+		coverImage: null,
+		readingTimeMinutes: 1,
+		isPaywalled: false,
+		source: null,
+	};
+}
+
 export async function parseArticle(url: string): Promise<ParsedArticle> {
+	if (isXUrl(url)) return parseXPost(url);
+
 	let response: Response;
 	try {
 		response = await fetch(url, {
