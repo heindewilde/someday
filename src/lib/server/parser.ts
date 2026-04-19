@@ -158,12 +158,17 @@ function isXUrl(url: string): boolean {
 	return /^(www\.)?(twitter\.com|x\.com)$/.test(hostname);
 }
 
+function isXArticleUrl(url: string): boolean {
+	return isXUrl(url) && /\/article\//.test(new URL(url).pathname);
+}
+
+// Use GET (not HEAD) — t.co and some redirectors drop HEAD requests
 async function resolveRedirect(url: string): Promise<string> {
 	try {
 		const res = await fetch(url, {
-			method: 'HEAD',
 			redirect: 'follow',
 			signal: AbortSignal.timeout(5000),
+			headers: { 'User-Agent': 'Mozilla/5.0' },
 		});
 		return res.url;
 	} catch {
@@ -171,20 +176,62 @@ async function resolveRedirect(url: string): Promise<string> {
 	}
 }
 
-async function parseXPost(url: string): Promise<ParsedArticle> {
-	const xFallback = (title = url): ParsedArticle => ({
+const X_FAVICON = 'https://abs.twimg.com/favicons/twitter.3.ico';
+
+function xFallback(title = 'X post', author: string | null = null): ParsedArticle {
+	return {
 		title,
 		description: null,
 		content: null,
-		author: null,
+		author,
 		siteName: 'X',
-		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+		favicon: X_FAVICON,
 		coverImage: null,
 		readingTimeMinutes: 1,
 		isPaywalled: false,
 		source: null,
-	});
+	};
+}
 
+// Fetch an X/Twitter page and extract og metadata. X pre-renders og tags for crawlers.
+async function fetchXMeta(url: string, fallbackAuthor: string | null = null): Promise<ParsedArticle | null> {
+	for (const ua of [
+		'Mozilla/5.0 (compatible; Twitterbot/1.0)',
+		'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+	]) {
+		try {
+			const res = await fetch(url, {
+				headers: { 'User-Agent': ua, 'Accept': 'text/html' },
+				signal: AbortSignal.timeout(8000),
+			});
+			if (!res.ok) continue;
+			const doc = new JSDOM(await res.text(), { url }).window.document;
+			const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
+			const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim();
+			const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null;
+			const author =
+				doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() ??
+				fallbackAuthor;
+			if (ogTitle) {
+				return {
+					title: ogTitle,
+					description: ogDesc ?? null,
+					content: null,
+					author,
+					siteName: 'X',
+					favicon: X_FAVICON,
+					coverImage: ogImage,
+					readingTimeMinutes: 1,
+					isPaywalled: false,
+					source: null,
+				};
+			}
+		} catch { /* try next UA */ }
+	}
+	return null;
+}
+
+async function parseXPost(url: string): Promise<ParsedArticle> {
 	let data: { html?: string; author_name?: string } = {};
 	try {
 		const res = await fetch(
@@ -203,65 +250,33 @@ async function parseXPost(url: string): Promise<ParsedArticle> {
 	const authorName = data.author_name ?? null;
 	const blockquote = dom.window.document.querySelector('blockquote');
 
-	// If the tweet body is essentially just a link (no meaningful text of its own),
-	// follow the link and parse the target as an article instead.
+	// If the tweet body has little or no text beyond a link, follow the link.
 	const textWithoutUrls = tweetText.replace(/https?:\/\/\S+/g, '').trim();
-	const firstLink = tweetP?.querySelector('a[href*="t.co"], a[href*="http"]');
-	const isLinkOnly = textWithoutUrls.length < 25 && firstLink !== null;
+	const firstLink = tweetP?.querySelector('a[href]');
+	const linkedHref = firstLink?.getAttribute('href') ?? '';
+	const isLinkOnly = linkedHref && textWithoutUrls.length < 30;
 
 	if (isLinkOnly) {
-		const linkedHref = firstLink!.getAttribute('href') ?? '';
 		const resolved = await resolveRedirect(linkedHref);
 
 		if (!isXUrl(resolved)) {
 			// External article — parse normally
-			try {
-				return await parseArticle(resolved);
-			} catch { /* fall through */ }
+			try { return await parseArticle(resolved); } catch { /* fall through */ }
 		} else {
-			// X Article or thread — fetch the page and extract og metadata
-			// (X serves og tags server-side for articles even without JS)
-			try {
-				const metaRes = await fetch(resolved, {
-					headers: {
-						'User-Agent': 'Mozilla/5.0 (compatible; Twitterbot/1.0)',
-						'Accept': 'text/html',
-					},
-					signal: AbortSignal.timeout(10000),
-				});
-				if (metaRes.ok) {
-					const metaDom = new JSDOM(await metaRes.text(), { url: resolved });
-					const doc = metaDom.window.document;
-					const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
-					const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim();
-					const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null;
-					if (ogTitle) {
-						return {
-							title: ogTitle,
-							description: ogDesc ?? null,
-							content: null,
-							author: authorName,
-							siteName: 'X',
-							favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
-							coverImage: ogImage,
-							readingTimeMinutes: 1,
-							isPaywalled: false,
-							source: null,
-						};
-					}
-				}
-			} catch { /* fall through */ }
+			// X Article or thread — try to get og metadata
+			const meta = await fetchXMeta(resolved, authorName);
+			if (meta) return meta;
 		}
 	}
 
-	// Regular tweet — use tweet text as description, author as title
+	// Regular tweet
 	return {
 		title: authorName ? `Tweet by ${authorName}` : 'X post',
 		description: tweetText || null,
 		content: blockquote ? blockquote.outerHTML : null,
 		author: authorName,
 		siteName: 'X',
-		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+		favicon: X_FAVICON,
 		coverImage: null,
 		readingTimeMinutes: 1,
 		isPaywalled: false,
@@ -270,6 +285,7 @@ async function parseXPost(url: string): Promise<ParsedArticle> {
 }
 
 export async function parseArticle(url: string): Promise<ParsedArticle> {
+	if (isXArticleUrl(url)) return (await fetchXMeta(url)) ?? xFallback();
 	if (isXUrl(url)) return parseXPost(url);
 
 	let response: Response;
