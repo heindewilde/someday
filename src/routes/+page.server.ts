@@ -80,6 +80,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		favicon: articles.favicon,
 		coverImage: articles.coverImage,
 		readingTimeMinutes: articles.readingTimeMinutes,
+		wordCount: articles.wordCount,
 		isRead: articles.isRead,
 		isArchived: articles.isArchived,
 		isFavorite: articles.isFavorite,

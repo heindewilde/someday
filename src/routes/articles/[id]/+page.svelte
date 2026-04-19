@@ -8,7 +8,8 @@
 	let article = $state({ ...data.article });
 
 	type Highlight = { id: string; selectedText: string; startOffset: number; endOffset: number; note: string | null; createdAt: Date | null };
-	let highlights = $state<Highlight[]>(data.highlights ?? []);
+	let highlights = $state<Highlight[]>([]);
+	$effect(() => { highlights = data.highlights ?? []; });
 	let highlightMode = $state(false);
 	let activeHighlightId = $state<string | null>(null);
 	let noteInputs = $state<Record<string, string>>({});
@@ -164,7 +165,8 @@
 		: null;
 
 	// --- Reminders ---
-	let reminderData = $state<typeof data.reminder | null>(data.reminder ?? null);
+	let reminderData = $state<typeof data.reminder | null>(null);
+	$effect(() => { reminderData = data.reminder ?? null; });
 	let showReminder = $state(false);
 
 	function toDatetimeLocal(d: Date): string {

@@ -84,7 +84,23 @@
 		return () => window.removeEventListener('mousedown', close);
 	});
 
-	const stats = $derived(data.counts.readingStats);
+	// Local counts state — lets us adjust sidebar badges and the stats popover
+	// optimistically on each mutation. Resyncs from server on any `data` change.
+	// svelte-ignore state_referenced_locally
+	let counts = $state(structuredClone(data.counts));
+	$effect(() => { counts = structuredClone(data.counts); });
+	const stats = $derived(counts.readingStats);
+
+	type CountBucket = 'unread' | 'read' | 'archive';
+	function bucketFor(a: { isRead?: boolean | null; isArchived?: boolean | null }): CountBucket {
+		if (a.isArchived) return 'archive';
+		return a.isRead ? 'read' : 'unread';
+	}
+	function adjustReadingStats(a: Article, sign: 1 | -1) {
+		counts.readingStats.articles = Math.max(0, counts.readingStats.articles + sign);
+		counts.readingStats.minutes = Math.max(0, counts.readingStats.minutes + sign * (a.readingTimeMinutes ?? 0));
+		counts.readingStats.words = Math.max(0, counts.readingStats.words + sign * (a.wordCount ?? 0));
+	}
 
 	// Poll while any freshly-saved article is still being parsed in the background.
 	const hasParsing = $derived(articles.some(a => a.source === 'parsing'));
@@ -127,7 +143,7 @@
 	function onSearchInput(value: string) {
 		searchValue = value;
 		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => navTo({ q: value || null, offset: null }), 300);
+		searchTimer = setTimeout(() => navTo({ q: value || null, offset: null }), 150);
 	}
 
 	// --- Keyboard shortcuts ---
@@ -240,8 +256,16 @@
 	async function toggleBoolField(id: string, field: 'isRead' | 'isFavorite', current: boolean) {
 		const a = articles.find(x => x.id === id);
 		if (!a) return;
-		a[field] = !current;
-		try { await patch(id, { [field]: !current }); }
+		const next = !current;
+		a[field] = next;
+
+		// Sidebar deltas — only isRead affects counts (favorite has no badge).
+		if (field === 'isRead' && !a.isArchived) {
+			if (next) { counts.unread = Math.max(0, counts.unread - 1); counts.read += 1; adjustReadingStats(a, 1); }
+			else      { counts.read = Math.max(0, counts.read - 1); counts.unread += 1; adjustReadingStats(a, -1); }
+		}
+
+		try { await patch(id, { [field]: next }); }
 		catch { a[field] = current; addToast('Failed to update', 'error'); }
 	}
 
@@ -250,6 +274,15 @@
 		if (idx === -1) return;
 		const removed = articles[idx];
 		articles.splice(idx, 1);
+
+		// Bucket shift: old bucket → archive (or archive → unread/read).
+		const fromBucket = bucketFor(removed);
+		const toBucket: CountBucket = archived ? 'archive' : (removed.isRead ? 'read' : 'unread');
+		if (fromBucket !== toBucket) {
+			counts[fromBucket] = Math.max(0, counts[fromBucket] - 1);
+			counts[toBucket] += 1;
+		}
+
 		try { await patch(id, { isArchived: archived }); }
 		catch { articles.splice(idx, 0, removed); addToast(`Failed to ${archived ? 'archive' : 'unarchive'}`, 'error'); }
 	}
@@ -259,18 +292,31 @@
 		if (idx === -1) return;
 		const removed = articles[idx];
 		articles.splice(idx, 1);
+
+		const bucket = bucketFor(removed);
+		counts[bucket] = Math.max(0, counts[bucket] - 1);
+		if (removed.isRead) adjustReadingStats(removed, -1);
+
 		let undone = false;
 		addToast('Article deleted', 'info', {
 			duration: 5500,
 			undoFn: () => {
 				undone = true;
 				articles.splice(idx, 0, removed);
+				counts[bucket] += 1;
+				if (removed.isRead) adjustReadingStats(removed, 1);
 			}
 		});
 		await new Promise(r => setTimeout(r, 5600));
 		if (undone) return;
 		const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
-		if (!res.ok) { articles.splice(idx, 0, removed); addToast('Failed to delete', 'error'); return; }
+		if (!res.ok) {
+			articles.splice(idx, 0, removed);
+			counts[bucket] += 1;
+			if (removed.isRead) adjustReadingStats(removed, 1);
+			addToast('Failed to delete', 'error');
+			return;
+		}
 	}
 
 	async function addTag(articleId: string) {
@@ -399,7 +445,7 @@
 			>
 				<BookOpen size={15} strokeWidth={1.4} />
 				Unread
-				{#if data.counts.unread > 0}<span class="badge">{data.counts.unread}</span>{/if}
+				{#if counts.unread > 0}<span class="badge">{counts.unread}</span>{/if}
 			</button>
 			<button
 				class="nav-item"

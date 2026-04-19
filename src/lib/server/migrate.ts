@@ -1,5 +1,8 @@
 import { client } from './db';
 
+// Guard against HMR double-starting intervals in dev.
+let parsingJanitorStarted = false;
+
 export async function migrate() {
 	await client.execute(`
 		CREATE TABLE IF NOT EXISTS users (
@@ -237,10 +240,26 @@ export async function migrate() {
 	// so the UI doesn't poll forever.
 	await client.execute(`UPDATE articles SET source = NULL WHERE source = 'parsing'`);
 
-	// Backfill word_count and domain for existing rows. Runs in the background
-	// so server startup isn't blocked; idempotent (only touches rows missing
-	// values). The library page degrades gracefully until backfill completes.
-	void backfillDerivedColumns();
+	// Periodic sweep: if a user closes their tab mid-parse, the background
+	// enrichment still completes — but if the server was killed between,
+	// nothing will ever flip the sentinel. Run every 5 min; clear rows older
+	// than 60s that are still marked 'parsing'.
+	if (!parsingJanitorStarted) {
+		parsingJanitorStarted = true;
+		setInterval(() => {
+			client.execute(
+				`UPDATE articles SET source = NULL
+				 WHERE source = 'parsing' AND saved_at < strftime('%s', 'now') - 60`
+			).catch(e => console.error('[janitor] parsing sweep failed:', e));
+		}, 5 * 60 * 1000);
+	}
+
+	// Background tasks: backfill missing derived columns, then reclaim dead
+	// pages. Serialized so VACUUM doesn't fight the backfill's writes.
+	void (async () => {
+		await backfillDerivedColumns();
+		await vacuumIfNeeded();
+	})();
 }
 
 async function backfillDerivedColumns() {
@@ -283,5 +302,26 @@ async function backfillDerivedColumns() {
 		console.log(`[migrate] Backfill done in ${Date.now() - start}ms`);
 	} catch (e) {
 		console.error('[migrate] Backfill failed:', e);
+	}
+}
+
+async function vacuumIfNeeded() {
+	try {
+		const free = await client.execute(`PRAGMA freelist_count`);
+		const pages = await client.execute(`PRAGMA page_count`);
+		const freelist = Number(free.rows[0]?.freelist_count ?? 0);
+		const pageCount = Number(pages.rows[0]?.page_count ?? 1);
+
+		// Only vacuum when there's meaningful reclaim to do. VACUUM takes a
+		// write lock for the duration, so we don't want to run it every boot.
+		const shouldVacuum = freelist > 1000 || freelist / pageCount > 0.1;
+		if (!shouldVacuum) return;
+
+		const start = Date.now();
+		console.log(`[db] freelist=${freelist}/${pageCount}; running VACUUM...`);
+		await client.execute(`VACUUM`);
+		console.log(`[db] VACUUM done in ${Date.now() - start}ms`);
+	} catch (e) {
+		console.error('[db] VACUUM check failed:', e);
 	}
 }
