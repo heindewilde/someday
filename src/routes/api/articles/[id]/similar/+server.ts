@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { db, client } from '$lib/server/db';
+import { db } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const STOP_WORDS = new Set([
@@ -13,7 +13,7 @@ const STOP_WORDS = new Set([
 	'after','use','how','our','work','well','way','even','new','want','because','any',
 	'these','most','are','was','were','been','has','had','is','am','being','did',
 	'does','doing','should','may','might','must','shall','here','more','very','said',
-	'each','those','such','both','before','under','again','same','own','few','than',
+	'each','those','such','both','before','under','again','same','own','few',
 ]);
 
 function tokenize(text: string | null | undefined): string[] {
@@ -23,56 +23,78 @@ function tokenize(text: string | null | undefined): string[] {
 		.toLowerCase()
 		.replace(/[^a-z0-9\s]/g, ' ')
 		.split(/\s+/)
-		.filter(w => w.length >= 4 && !STOP_WORDS.has(w));
+		.filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
-function buildFTSQuery(title: string, content: string | null): string | null {
-	// Title words count 3x to bias toward topical similarity
-	const words = [
-		...tokenize(title), ...tokenize(title), ...tokenize(title),
-		...tokenize(content),
+function docTokens(title: string, description: string | null, content: string | null): string[] {
+	// Title repeated for higher weight; content truncated to keep memory reasonable
+	const contentText = content ? content.replace(/<[^>]+>/g, ' ').slice(0, 3000) : '';
+	return [
+		...tokenize(title), ...tokenize(title),
+		...tokenize(description),
+		...tokenize(contentText),
 	];
-	if (words.length === 0) return null;
+}
 
-	// Rank by frequency, take top 50 unique terms
-	const freq: Record<string, number> = {};
-	for (const w of words) freq[w] = (freq[w] ?? 0) + 1;
+function buildVector(tokens: string[], df: Record<string, number>, N: number): Record<string, number> {
+	const tf: Record<string, number> = {};
+	for (const t of tokens) tf[t] = (tf[t] ?? 0) + 1;
+	const len = tokens.length || 1;
+	const vec: Record<string, number> = {};
+	for (const [t, count] of Object.entries(tf)) {
+		// Smoothed IDF: log((N+1)/(df+1)) + 1
+		const idf = Math.log((N + 1) / ((df[t] ?? 0) + 1)) + 1;
+		vec[t] = (count / len) * idf;
+	}
+	return vec;
+}
 
-	const terms = Object.entries(freq)
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 50)
-		.map(([w]) => `"${w.replace(/"/g, '')}"`)
-		.join(' OR ');
-
-	return terms || null;
+function cosineSimilarity(a: Record<string, number>, b: Record<string, number>): number {
+	let dot = 0, magA = 0, magB = 0;
+	for (const [t, v] of Object.entries(a)) {
+		dot += v * (b[t] ?? 0);
+		magA += v * v;
+	}
+	for (const v of Object.values(b)) magB += v * v;
+	return magA && magB ? dot / (Math.sqrt(magA) * Math.sqrt(magB)) : 0;
 }
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
 
-	const [target] = await db
-		.select({ id: articles.id, title: articles.title, content: articles.content })
+	const allArticles = await db
+		.select({ id: articles.id, title: articles.title, description: articles.description, content: articles.content })
 		.from(articles)
-		.where(and(eq(articles.id, params.id), eq(articles.userId, locals.user.id)));
+		.where(eq(articles.userId, locals.user.id));
 
-	if (!target) error(404, 'Article not found');
+	if (allArticles.length < 2) return json([]);
+	if (!allArticles.find(a => a.id === params.id)) error(404, 'Article not found');
 
-	const query = buildFTSQuery(target.title, target.content);
-	if (!query) return json([]);
+	const tokenized = allArticles.map(a => ({
+		id: a.id,
+		tokens: docTokens(a.title ?? '', a.description, a.content),
+	}));
 
-	const result = await client.execute({
-		sql: `SELECT article_id FROM articles_fts
-		      WHERE articles_fts MATCH ?
-		        AND user_id = ?
-		        AND article_id != ?
-		      ORDER BY rank LIMIT 5`,
-		args: [query, locals.user.id, params.id],
-	});
-	const rows = result.rows as unknown as { article_id: string }[];
+	const N = tokenized.length;
 
-	if (rows.length === 0) return json([]);
+	// Document frequency across corpus
+	const df: Record<string, number> = {};
+	for (const { tokens } of tokenized) {
+		for (const t of new Set(tokens)) df[t] = (df[t] ?? 0) + 1;
+	}
 
-	const ids = rows.map(r => r.article_id);
+	const targetTokens = tokenized.find(d => d.id === params.id)!.tokens;
+	const targetVec = buildVector(targetTokens, df, N);
+
+	const scored = tokenized
+		.filter(d => d.id !== params.id)
+		.map(d => ({ id: d.id, score: cosineSimilarity(targetVec, buildVector(d.tokens, df, N)) }))
+		.filter(d => d.score > 0)
+		.sort((a, b) => b.score - a.score)
+		.slice(0, 5);
+
+	if (scored.length === 0) return json([]);
+
 	const results = await db
 		.select({
 			id: articles.id,
@@ -84,9 +106,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			isRead: articles.isRead,
 		})
 		.from(articles)
-		.where(inArray(articles.id, ids));
+		.where(inArray(articles.id, scored.map(s => s.id)));
 
-	// Preserve FTS rank order
 	const byId = Object.fromEntries(results.map(a => [a.id, a]));
-	return json(ids.map(id => byId[id]).filter(Boolean));
+	return json(scored.map(s => byId[s.id]).filter(Boolean));
 };

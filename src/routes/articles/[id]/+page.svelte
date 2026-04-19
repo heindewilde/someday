@@ -64,6 +64,14 @@
 	const savedDate = article.savedAt
 		? new Date(article.savedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 		: null;
+
+	$effect(() => {
+		function handleMousedown(e: MouseEvent) {
+			if (!(e.target as HTMLElement).closest('.similar-wrap')) showSimilar = false;
+		}
+		window.addEventListener('mousedown', handleMousedown);
+		return () => window.removeEventListener('mousedown', handleMousedown);
+	});
 </script>
 
 <svelte:head>
@@ -109,14 +117,40 @@
 				</svg>
 				Save as PDF
 			</button>
-			<button class="act" class:act-on={showSimilar} onclick={fetchSimilar}>
-				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-					<circle cx="5.5" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3"/>
-					<circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/>
-					<path d="M8 5.5h1.5M5.5 8V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-				</svg>
-				{loadingSimilar ? '…' : 'Similar'}
-			</button>
+			<div class="similar-wrap">
+				<button class="act" class:act-on={showSimilar} onclick={fetchSimilar}>
+					<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
+						<circle cx="5.5" cy="5.5" r="3" stroke="currentColor" stroke-width="1.3"/>
+						<circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.3"/>
+						<path d="M8 5.5h1.5M5.5 8V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+					</svg>
+					{loadingSimilar ? '…' : 'Similar'}
+				</button>
+				{#if showSimilar}
+					<div class="similar-dropdown">
+						{#if loadingSimilar}
+							<p class="similar-empty">Finding similar articles…</p>
+						{:else if similar && similar.length > 0}
+							{#each similar as s}
+								<a href="/articles/{s.id}" class="similar-item">
+									<div class="similar-meta">
+										{#if s.favicon}
+											<img src={s.favicon} alt="" width="12" height="12" class="similar-fav"
+												onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+										{/if}
+										<span class="similar-site">{s.siteName ?? (s.url ? new URL(s.url).hostname : '')}</span>
+										{#if s.readingTimeMinutes}<span class="similar-time">· {s.readingTimeMinutes} min</span>{/if}
+										{#if s.isRead}<span class="similar-read">· read</span>{/if}
+									</div>
+									<p class="similar-title">{s.title}</p>
+								</a>
+							{/each}
+						{:else}
+							<p class="similar-empty">No similar articles found in your library.</p>
+						{/if}
+					</div>
+				{/if}
+			</div>
 			<button class="act act-del" onclick={deleteArticle}>
 				<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
 				Delete
@@ -158,35 +192,6 @@
 			</div>
 		{/if}
 
-		{#if showSimilar}
-			<div class="similar">
-				<p class="similar-label">Similar articles</p>
-				{#if loadingSimilar}
-					<p class="similar-empty">Finding similar articles…</p>
-				{:else if similar && similar.length > 0}
-					{#each similar as s}
-						<a href="/articles/{s.id}" class="similar-item">
-							<div class="similar-meta">
-								{#if s.favicon}
-									<img src={s.favicon} alt="" width="12" height="12" class="similar-fav"
-										onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-								{/if}
-								<span class="similar-site">{s.siteName ?? (s.url ? new URL(s.url).hostname : '')}</span>
-								{#if s.readingTimeMinutes}
-									<span class="similar-time">· {s.readingTimeMinutes} min</span>
-								{/if}
-								{#if s.isRead}
-									<span class="similar-read">· read</span>
-								{/if}
-							</div>
-							<p class="similar-title">{s.title}</p>
-						</a>
-					{/each}
-				{:else}
-					<p class="similar-empty">No similar articles found in your library.</p>
-				{/if}
-			</div>
-		{/if}
 	</div>
 </div>
 
@@ -373,57 +378,60 @@
 		text-underline-offset: 2px;
 	}
 
-	.similar {
-		margin-top: 3rem;
-		padding-top: 2rem;
-		border-top: 1px solid var(--color-border);
+	.similar-wrap {
+		position: relative;
 	}
 
-	.similar-label {
-		font-size: 0.6875rem;
-		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-subtle);
-		margin: 0 0 1rem;
+	.similar-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		width: 300px;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		z-index: 50;
+		overflow: hidden;
 	}
 
 	.similar-item {
 		display: block;
-		padding: 0.75rem 0;
+		padding: 0.625rem 0.875rem;
 		border-bottom: 1px solid var(--color-border);
 		text-decoration: none;
-		transition: opacity 0.1s;
+		transition: background 0.1s;
 	}
 
 	.similar-item:last-child { border-bottom: none; }
-	.similar-item:hover { opacity: 0.7; }
+	.similar-item:hover { background: var(--color-bg); }
 
 	.similar-meta {
 		display: flex;
 		align-items: center;
 		gap: 0.3rem;
-		margin-bottom: 0.25rem;
+		margin-bottom: 0.2rem;
 	}
 
 	.similar-fav { border-radius: 2px; object-fit: contain; }
-	.similar-site { font-size: 0.75rem; color: var(--color-muted); }
-	.similar-time { font-size: 0.75rem; color: var(--color-subtle); }
-	.similar-read { font-size: 0.75rem; color: var(--color-subtle); }
+	.similar-site { font-size: 0.6875rem; color: var(--color-muted); }
+	.similar-time { font-size: 0.6875rem; color: var(--color-subtle); }
+	.similar-read { font-size: 0.6875rem; color: var(--color-subtle); }
 
 	.similar-title {
-		font-size: 0.9375rem;
+		font-size: 0.8125rem;
 		font-weight: 500;
 		color: var(--color-text);
 		margin: 0;
 		letter-spacing: -0.01em;
-		line-height: 1.4;
+		line-height: 1.35;
 	}
 
 	.similar-empty {
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		color: var(--color-muted);
 		margin: 0;
+		padding: 0.875rem;
 	}
 
 	@media print {
