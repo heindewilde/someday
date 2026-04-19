@@ -2,11 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { collections } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
+import { slugify } from '$lib/server/utils';
 import type { RequestHandler } from './$types';
-
-function slugify(s: string) {
-	return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-}
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');

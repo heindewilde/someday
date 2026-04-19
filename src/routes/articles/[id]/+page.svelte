@@ -160,19 +160,20 @@
 	let reminderData = $state<typeof data.reminder | null>(data.reminder ?? null);
 	let showReminder = $state(false);
 
-	function defaultRemindAt(): string {
-		const d = new Date();
-		d.setDate(d.getDate() + 1);
-		d.setHours(9, 0, 0, 0);
+	function toDatetimeLocal(d: Date): string {
 		const pad = (n: number) => String(n).padStart(2, '0');
 		return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	}
 
+	function defaultRemindAt(): string {
+		const d = new Date();
+		d.setDate(d.getDate() + 1);
+		d.setHours(9, 0, 0, 0);
+		return toDatetimeLocal(d);
+	}
+
 	function reminderInputValue(): string {
-		if (!reminderData) return defaultRemindAt();
-		const d = new Date(reminderData.remindAt);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+		return reminderData ? toDatetimeLocal(new Date(reminderData.remindAt)) : defaultRemindAt();
 	}
 
 	let reminderDatetime = $state(reminderInputValue());

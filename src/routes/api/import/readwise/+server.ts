@@ -2,11 +2,12 @@ import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles, tags, articleTags } from '$lib/server/schema';
 import { cleanUrl, parseArticle } from '$lib/server/parser';
+import { slugify } from '$lib/server/utils';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const CONCURRENCY = 5;
-const JOB_TTL_MS = 5 * 60 * 1000; // keep completed jobs for 5 min
+const JOB_TTL_MS = 5 * 60 * 1000;
 
 interface ImportJob {
 	total: number;
@@ -18,12 +19,7 @@ interface ImportJob {
 	completedAt: number | null;
 }
 
-// Module-level store — persists across requests in the same Node process
 const importJobs = new Map<string, ImportJob>();
-
-function slugify(s: string) {
-	return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-}
 
 function parseCSV(text: string): string[][] {
 	const rows: string[][] = [];
@@ -244,6 +240,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// Fire and forget — runs after response is sent
 	runImport(job, dataRows, idx, locals.user.id).catch(e => {
+		console.error('Readwise import failed:', e);
 		job.error = e.message;
 		job.done = true;
 		job.completedAt = Date.now();

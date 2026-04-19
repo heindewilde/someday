@@ -183,9 +183,9 @@
 			const a = articles.find(x => x.id === activeArticleId);
 			if (!a) return;
 			if (e.key === 'Enter' || e.key === 'o') { e.preventDefault(); goto(`/articles/${a.id}`); return; }
-			if (e.key === 'r') { e.preventDefault(); toggleRead(a.id, a.isRead ?? false); return; }
-			if (e.key === 'f') { e.preventDefault(); toggleFavorite(a.id, a.isFavorite ?? false); return; }
-			if (e.key === 'e') { e.preventDefault(); archiveArticle(a.id); return; }
+			if (e.key === 'r') { e.preventDefault(); toggleBoolField(a.id, 'isRead', a.isRead ?? false); return; }
+			if (e.key === 'f') { e.preventDefault(); toggleBoolField(a.id, 'isFavorite', a.isFavorite ?? false); return; }
+			if (e.key === 'e') { e.preventDefault(); setArchived(a.id, true); return; }
 			if (e.key === 'd') { e.preventDefault(); deleteArticle(a.id); return; }
 		}
 	}
@@ -222,38 +222,21 @@
 		if (!res.ok) throw new Error('Request failed');
 	}
 
-	async function toggleRead(id: string, isRead: boolean) {
+	async function toggleBoolField(id: string, field: 'isRead' | 'isFavorite', current: boolean) {
 		const a = articles.find(x => x.id === id);
 		if (!a) return;
-		a.isRead = !isRead;
-		try { await patch(id, { isRead: !isRead }); invalidateAll(); }
-		catch { a.isRead = isRead; addToast('Failed to update', 'error'); }
+		a[field] = !current;
+		try { await patch(id, { [field]: !current }); invalidateAll(); }
+		catch { a[field] = current; addToast('Failed to update', 'error'); }
 	}
 
-	async function toggleFavorite(id: string, isFavorite: boolean) {
-		const a = articles.find(x => x.id === id);
-		if (!a) return;
-		a.isFavorite = !isFavorite;
-		try { await patch(id, { isFavorite: !isFavorite }); invalidateAll(); }
-		catch { a.isFavorite = isFavorite; addToast('Failed to update', 'error'); }
-	}
-
-	async function archiveArticle(id: string) {
+	async function setArchived(id: string, archived: boolean) {
 		const idx = articles.findIndex(x => x.id === id);
 		if (idx === -1) return;
 		const removed = articles[idx];
 		articles.splice(idx, 1);
-		try { await patch(id, { isArchived: true }); invalidateAll(); }
-		catch { articles.splice(idx, 0, removed); addToast('Failed to archive', 'error'); }
-	}
-
-	async function unarchiveArticle(id: string) {
-		const idx = articles.findIndex(x => x.id === id);
-		if (idx === -1) return;
-		const removed = articles[idx];
-		articles.splice(idx, 1);
-		try { await patch(id, { isArchived: false }); invalidateAll(); }
-		catch { articles.splice(idx, 0, removed); addToast('Failed to unarchive', 'error'); }
+		try { await patch(id, { isArchived: archived }); invalidateAll(); }
+		catch { articles.splice(idx, 0, removed); addToast(`Failed to ${archived ? 'archive' : 'unarchive'}`, 'error'); }
 	}
 
 	async function deleteArticle(id: string) {
@@ -367,6 +350,11 @@
 	const filterLabels: Record<string, string> = {
 		unread: 'Unread', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
 	};
+
+	const READING_TIME_LABELS: Record<string, string> = {
+		under5: '< 5 min', under10: '< 10 min', under15: '< 15 min', under20: '< 20 min', over20: '> 20 min'
+	};
+	const READING_TIME_OPTIONS = Object.entries(READING_TIME_LABELS);
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -567,12 +555,12 @@
 			<div class="filter-dd-wrap time-filter-wrap">
 				<button class="filter-pill" class:active={!!data.readingTime} onclick={() => { showTimeFilter = !showTimeFilter; showTagFilter = false; }}>
 					<Clock size={11} strokeWidth={1.4} />
-					{data.readingTime === 'under5' ? '< 5 min' : data.readingTime === 'under10' ? '< 10 min' : data.readingTime === 'under15' ? '< 15 min' : data.readingTime === 'under20' ? '< 20 min' : data.readingTime === 'over20' ? '> 20 min' : 'Reading time'}
+					{data.readingTime ? (READING_TIME_LABELS[data.readingTime] ?? 'Reading time') : 'Reading time'}
 					<ChevronDown size={10} strokeWidth={1.6} />
 				</button>
 				{#if showTimeFilter}
 					<div class="filter-dropdown">
-						{#each [['under5', '< 5 min'], ['under10', '< 10 min'], ['under15', '< 15 min'], ['under20', '< 20 min'], ['over20', '> 20 min']] as [val, label]}
+						{#each READING_TIME_OPTIONS as [val, label]}
 							<button
 								class="filter-dd-opt"
 								class:active={data.readingTime === val}
@@ -684,7 +672,7 @@
 
 						<div class="card-actions">
 							{#if !data.activeCollection}
-								<button class="act" class:act-on={article.isRead} onclick={() => toggleRead(article.id, article.isRead ?? false)}>
+								<button class="act" class:act-on={article.isRead} onclick={() => toggleBoolField(article.id, 'isRead', article.isRead ?? false)}>
 									{#if article.isRead}
 										<Check size={12} strokeWidth={1.6} />
 										Unread
@@ -694,18 +682,18 @@
 									{/if}
 								</button>
 							{/if}
-							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleFavorite(article.id, article.isFavorite ?? false)}>
+							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleBoolField(article.id, 'isFavorite', article.isFavorite ?? false)}>
 								<Star size={12} strokeWidth={1.4} fill={article.isFavorite ? 'currentColor' : 'none'} />
 								{article.isFavorite ? 'Favorited' : 'Favorite'}
 							</button>
 							{#if !data.activeCollection}
 								{#if data.filter === 'archive'}
-									<button class="act" onclick={() => unarchiveArticle(article.id)}>
+									<button class="act" onclick={() => setArchived(article.id, false)}>
 										<ArchiveRestore size={12} strokeWidth={1.4} />
 										Unarchive
 									</button>
 								{:else}
-									<button class="act" onclick={() => archiveArticle(article.id)}>
+									<button class="act" onclick={() => setArchived(article.id, true)}>
 										<Archive size={12} strokeWidth={1.4} />
 										Archive
 									</button>

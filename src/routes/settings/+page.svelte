@@ -79,8 +79,14 @@
 		importError = null;
 	}
 
+	const POLL_INTERVAL = 800;
+
 	function stopPolling() {
 		if (pollTimer !== null) { clearInterval(pollTimer); pollTimer = null; }
+	}
+
+	function startPolling() {
+		pollTimer = setInterval(pollStatus, POLL_INTERVAL);
 	}
 
 	async function pollStatus() {
@@ -98,7 +104,7 @@
 				importLoading = false;
 				stopPolling();
 			}
-		} catch { /* ignore transient errors */ }
+		} catch (e) { console.warn('Poll error:', e); }
 	}
 
 	onMount(async () => {
@@ -109,7 +115,7 @@
 			importLoading = true;
 			importTotal = data.total ?? 0;
 			importProgress = data.progress ?? 0;
-			pollTimer = setInterval(pollStatus, 800);
+			startPolling();
 		} else if (data.done) {
 			importResult = { imported: data.imported, skipped: data.skipped };
 		}
@@ -136,7 +142,7 @@
 			importTotal = data.total ?? 0;
 			importFile = null;
 			if (fileInputEl) fileInputEl.value = '';
-			pollTimer = setInterval(pollStatus, 800);
+			startPolling();
 		} catch (e: any) {
 			importError = e.message;
 			importLoading = false;
