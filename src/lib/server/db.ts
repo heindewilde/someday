@@ -17,4 +17,13 @@ export const client = createClient({
 	authToken: env.DATABASE_AUTH_TOKEN,
 });
 
+// PRAGMA tuning — run once on boot. WAL lets readers proceed while a writer
+// commits; larger cache + mmap cut disk hits on a ~157MB DB.
+await client.execute(`PRAGMA journal_mode = WAL`);
+await client.execute(`PRAGMA synchronous = NORMAL`);
+await client.execute(`PRAGMA cache_size = -65536`);
+await client.execute(`PRAGMA mmap_size = 268435456`);
+await client.execute(`PRAGMA temp_store = MEMORY`);
+await client.execute(`PRAGMA busy_timeout = 5000`);
+
 export const db = drizzle(client, { schema });

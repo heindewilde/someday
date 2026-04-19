@@ -34,22 +34,23 @@ export async function getSession(cookies: Cookies) {
 	const sessionId = cookies.get(SESSION_COOKIE);
 	if (!sessionId) return null;
 
-	const [session] = await db
-		.select({ id: sessions.id, userId: sessions.userId, expiresAt: sessions.expiresAt })
+	const [row] = await db
+		.select({
+			userId: users.id,
+			email: users.email,
+			name: users.name,
+			expiresAt: sessions.expiresAt
+		})
 		.from(sessions)
+		.innerJoin(users, eq(users.id, sessions.userId))
 		.where(eq(sessions.id, sessionId));
 
-	if (!session || session.expiresAt < new Date()) {
+	if (!row || row.expiresAt < new Date()) {
 		cookies.delete(SESSION_COOKIE, { path: '/' });
 		return null;
 	}
 
-	const [user] = await db
-		.select({ id: users.id, email: users.email, name: users.name })
-		.from(users)
-		.where(eq(users.id, session.userId));
-
-	return user ?? null;
+	return { id: row.userId, email: row.email, name: row.name };
 }
 
 export async function deleteSession(cookies: Cookies) {

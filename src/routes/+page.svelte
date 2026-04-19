@@ -228,7 +228,7 @@
 		const a = articles.find(x => x.id === id);
 		if (!a) return;
 		a[field] = !current;
-		try { await patch(id, { [field]: !current }); invalidateAll(); }
+		try { await patch(id, { [field]: !current }); }
 		catch { a[field] = current; addToast('Failed to update', 'error'); }
 	}
 
@@ -237,7 +237,7 @@
 		if (idx === -1) return;
 		const removed = articles[idx];
 		articles.splice(idx, 1);
-		try { await patch(id, { isArchived: archived }); invalidateAll(); }
+		try { await patch(id, { isArchived: archived }); }
 		catch { articles.splice(idx, 0, removed); addToast(`Failed to ${archived ? 'archive' : 'unarchive'}`, 'error'); }
 	}
 
@@ -258,7 +258,6 @@
 		if (undone) return;
 		const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
 		if (!res.ok) { articles.splice(idx, 0, removed); addToast('Failed to delete', 'error'); return; }
-		invalidateAll();
 	}
 
 	async function addTag(articleId: string) {
@@ -282,7 +281,6 @@
 		a.tags = a.tags.filter(t => t.id !== tagId);
 		const res = await fetch(`/api/articles/${articleId}/tags/${tagId}`, { method: 'DELETE' });
 		if (!res.ok) { a.tags = oldTags; addToast('Failed to remove tag', 'error'); return; }
-		invalidateAll();
 	}
 
 	async function toggleCollection(articleId: string, collectionId: string) {
@@ -300,7 +298,6 @@
 			body: JSON.stringify({ collectionIds: a.collections.map((c: { id: string }) => c.id) })
 		});
 		if (!res.ok) { a.collections = oldCollections; addToast('Failed to update collection', 'error'); }
-		else invalidateAll();
 	}
 
 	async function createCollection() {

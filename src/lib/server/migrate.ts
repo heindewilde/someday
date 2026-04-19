@@ -166,4 +166,54 @@ export async function migrate() {
 			created_at INTEGER
 		)
 	`);
+
+	// Indexes — without these the library query is a full scan on `articles`,
+	// and every tag/collection join is a full scan on the link table.
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_articles_user_archived_read_saved
+		 ON articles(user_id, is_archived, is_read, saved_at DESC)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_articles_user_favorite_saved
+		 ON articles(user_id, is_favorite, saved_at DESC)
+		 WHERE is_favorite = 1`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_articles_user_rtime
+		 ON articles(user_id, reading_time_minutes)`
+	);
+	// Unique (user_id, url). Falls back to a non-unique index if a prior
+	// import landed duplicates — the app-level dedupe in POST /api/articles
+	// and the readwise importer both check before inserting.
+	try {
+		await client.execute(
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_user_url
+			 ON articles(user_id, url)`
+		);
+	} catch {
+		await client.execute(
+			`CREATE INDEX IF NOT EXISTS idx_articles_user_url
+			 ON articles(user_id, url)`
+		);
+	}
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_article_tags_tag ON article_tags(tag_id)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_article_collections_collection
+		 ON article_collections(collection_id)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_reminders_user_time
+		 ON reminders(user_id, remind_at)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_highlights_article ON highlights(article_id)`
+	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_tags_user ON tags(user_id, slug)`
+	);
 }

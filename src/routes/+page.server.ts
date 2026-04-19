@@ -51,11 +51,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	if (q) {
-		const escaped = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
-		const pattern = `%${escaped}%`;
-		conditions.push(
-			or(like(articles.title, pattern), like(articles.description, pattern))!
-		);
+		// Strip FTS5 operator chars, then build a prefix-match query over the
+		// articles_fts virtual table (already kept in sync by triggers).
+		const clean = q.replace(/["()*:]/g, ' ').trim();
+		if (clean) {
+			const ftsQuery = clean.split(/\s+/).filter(Boolean).map(w => `"${w}"*`).join(' ');
+			conditions.push(
+				sql`${articles.id} IN (
+					SELECT article_id FROM articles_fts
+					WHERE articles_fts MATCH ${ftsQuery} AND user_id = ${userId}
+				)`
+			);
+		}
 	}
 
 	const selectFields = {
