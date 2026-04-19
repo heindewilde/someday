@@ -5,6 +5,14 @@ import { parseArticle, cleanUrl } from '$lib/server/parser';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
+export const DELETE: RequestHandler = async ({ locals }) => {
+	if (!locals.user) error(401, 'Unauthorized');
+
+	await db.delete(articles).where(eq(articles.userId, locals.user.id));
+
+	return json({ ok: true });
+};
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
 
