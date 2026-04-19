@@ -143,4 +143,14 @@ export async function migrate() {
 	} catch {
 		// Already exists
 	}
+
+	await client.execute(`
+		CREATE TABLE IF NOT EXISTS reminders (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+			remind_at INTEGER NOT NULL,
+			created_at INTEGER
+		)
+	`);
 }

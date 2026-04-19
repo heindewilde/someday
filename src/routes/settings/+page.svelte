@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ArrowLeft } from 'lucide-svelte';
 	let { data } = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -69,7 +70,7 @@
 <div class="page">
 	<header class="header">
 		<a href="/" class="back">
-			<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M8.5 3L4.5 7.5L8.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			<ArrowLeft size={14} strokeWidth={1.5} />
 			Library
 		</a>
 		<h1>Settings</h1>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { addToast } from '$lib/toasts.svelte';
+	import { ArrowLeft, Check, Circle, Star, ExternalLink, Printer, Bell, Languages, Sparkles, Trash2, ChevronDown } from 'lucide-svelte';
 
 	let { data } = $props();
 	// svelte-ignore state_referenced_locally
@@ -10,6 +11,95 @@
 	let similar = $state<SimilarArticle[] | null>(null);
 	let loadingSimilar = $state(false);
 	let showSimilar = $state(false);
+
+	let translatedTitle = $state<string | null>(null);
+	let translatedHtml = $state<string | null>(null);
+	let loadingTranslate = $state(false);
+	let targetLang = $state('en');
+	let showLangPicker = $state(false);
+
+	const LANGS = [
+		['en', 'English'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'],
+		['pt', 'Portuguese'], ['it', 'Italian'], ['nl', 'Dutch'], ['pl', 'Polish'],
+		['ru', 'Russian'], ['ja', 'Japanese'], ['zh', 'Chinese'], ['ko', 'Korean'],
+		['ar', 'Arabic'], ['tr', 'Turkish'], ['sv', 'Swedish'],
+	];
+
+	function esc(s: string) {
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+
+	async function callTranslate(text: string): Promise<string> {
+		const res = await fetch('/api/translate', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ text, target: targetLang })
+		});
+		if (!res.ok) throw new Error('Translation failed');
+		return (await res.json()).translated as string;
+	}
+
+	async function translateArticle() {
+		if (translatedHtml !== null) {
+			translatedTitle = null;
+			translatedHtml = null;
+			return;
+		}
+		if (loadingTranslate) return;
+		loadingTranslate = true;
+		try {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(article.content ?? '', 'text/html');
+			const blockEls = Array.from(doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, li'));
+			const blockData = blockEls
+				.map(el => ({ tag: el.tagName.toLowerCase(), text: el.textContent?.trim() ?? '' }))
+				.filter(b => b.text.length > 0);
+
+			// Build chunks, tracking start index of each chunk so we can map tags back
+			const chunkInfos: { texts: string[]; startIdx: number }[] = [];
+			let currentTexts: string[] = [];
+			let currentLen = 0;
+			let startIdx = 0;
+			for (let i = 0; i < blockData.length; i++) {
+				const { text } = blockData[i];
+				if (currentLen + text.length + 2 > 2000 && currentTexts.length > 0) {
+					chunkInfos.push({ texts: currentTexts, startIdx });
+					startIdx = i;
+					currentTexts = [text];
+					currentLen = text.length;
+				} else {
+					currentTexts.push(text);
+					currentLen += text.length + 2;
+				}
+			}
+			if (currentTexts.length > 0) chunkInfos.push({ texts: currentTexts, startIdx });
+
+			const [titleResult, ...chunkResults] = await Promise.all([
+				callTranslate(article.title ?? ''),
+				...chunkInfos.map(({ texts }) => callTranslate(texts.join('\n\n')))
+			]);
+
+			// Reassemble with original tags
+			const htmlParts: string[] = [];
+			chunkResults.forEach((result, ci) => {
+				const { startIdx } = chunkInfos[ci];
+				result.split('\n\n').filter(Boolean).forEach((text, i) => {
+					const tag = blockData[startIdx + i]?.tag ?? 'p';
+					const safe = esc(text);
+					if (tag === 'blockquote') htmlParts.push(`<blockquote><p>${safe}</p></blockquote>`);
+					else if (['h1','h2','h3','h4','h5','h6'].includes(tag)) htmlParts.push(`<${tag}>${safe}</${tag}>`);
+					else htmlParts.push(`<p>${safe}</p>`);
+				});
+			});
+
+			translatedTitle = titleResult;
+			translatedHtml = htmlParts.join('\n');
+		} catch {
+			addToast('Translation failed', 'error');
+		} finally {
+			loadingTranslate = false;
+		}
+	}
 
 	async function fetchSimilar() {
 		if (similar !== null) { showSimilar = !showSimilar; return; }
@@ -66,9 +156,57 @@
 		? new Date(article.savedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 		: null;
 
+	// --- Reminders ---
+	let reminderData = $state<typeof data.reminder | null>(data.reminder ?? null);
+	let showReminder = $state(false);
+
+	function defaultRemindAt(): string {
+		const d = new Date();
+		d.setDate(d.getDate() + 1);
+		d.setHours(9, 0, 0, 0);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
+
+	function reminderInputValue(): string {
+		if (!reminderData) return defaultRemindAt();
+		const d = new Date(reminderData.remindAt);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
+
+	let reminderDatetime = $state(reminderInputValue());
+
+	async function saveReminder() {
+		const res = await fetch('/api/reminders', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ articleId: article.id, remindAt: reminderDatetime })
+		});
+		if (res.ok) {
+			reminderData = await res.json();
+			showReminder = false;
+			addToast('Reminder set', 'success');
+		} else {
+			addToast('Failed to set reminder', 'error');
+		}
+	}
+
+	async function deleteReminder() {
+		if (!reminderData) return;
+		const res = await fetch(`/api/reminders/${reminderData.id}`, { method: 'DELETE' });
+		if (res.ok) {
+			reminderData = null;
+			showReminder = false;
+			addToast('Reminder removed', 'info');
+		}
+	}
+
 	$effect(() => {
 		function handleMousedown(e: MouseEvent) {
 			if (!(e.target as HTMLElement).closest('.similar-wrap')) showSimilar = false;
+			if (!(e.target as HTMLElement).closest('.remind-wrap')) showReminder = false;
+			if (!(e.target as HTMLElement).closest('.translate-wrap')) showLangPicker = false;
 		}
 		window.addEventListener('mousedown', handleMousedown);
 		return () => window.removeEventListener('mousedown', handleMousedown);
@@ -82,48 +220,85 @@
 <div class="page">
 	<header class="topbar">
 		<a href="/" class="back">
-			<svg width="14" height="14" viewBox="0 0 15 15" fill="none">
-				<path d="M8.5 3L4.5 7.5L8.5 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-			</svg>
+			<ArrowLeft size={14} strokeWidth={1.5} />
 			Back
 		</a>
 
 		<div class="topbar-actions">
 			<button class="act" class:act-on={article.isRead} onclick={toggleRead}>
 				{#if article.isRead}
-					<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					<Check size={12} strokeWidth={1.6} />
 					Mark unread
 				{:else}
-					<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/></svg>
+					<Circle size={12} strokeWidth={1.4} />
 					Mark read
 				{/if}
 			</button>
 			<button class="act" class:act-on={article.isFavorite} onclick={toggleFavorite}>
-				<svg width="12" height="12" viewBox="0 0 15 15" fill={article.isFavorite ? 'currentColor' : 'none'}>
-					<path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-				</svg>
+				<Star size={12} strokeWidth={1.4} fill={article.isFavorite ? 'currentColor' : 'none'} />
 				{article.isFavorite ? 'Favorited' : 'Favorite'}
 			</button>
 			{#if article.url}
 			<a class="act" href={article.url} target="_blank" rel="noopener">
-				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-					<path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ExternalLink size={12} strokeWidth={1.4} />
 				Original
 			</a>
 			{/if}
 			<button class="act" onclick={() => window.print()}>
-				<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-					<path d="M3.5 5V2.5h8V5M3.5 11.5H2a.5.5 0 01-.5-.5V6a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v5a.5.5 0 01-.5.5h-1.5M3.5 9.5h8v3h-8v-3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-				</svg>
+				<Printer size={12} strokeWidth={1.4} />
 				Save as PDF
 			</button>
-			<div class="similar-wrap">
+			<div class="remind-wrap">
+					<button class="act" class:act-on={reminderData !== null} onclick={() => { reminderDatetime = reminderInputValue(); showReminder = !showReminder; }}>
+						<Bell size={12} strokeWidth={1.4} />
+						Remind
+					</button>
+					{#if showReminder}
+						<div class="remind-dropdown">
+							<p class="remind-label">{reminderData ? 'Update reminder' : 'Set reminder'}</p>
+							<input
+								class="remind-input"
+								type="datetime-local"
+								bind:value={reminderDatetime}
+							/>
+							<div class="remind-actions">
+								{#if reminderData}
+									<button class="remind-btn remind-btn-del" onclick={deleteReminder}>Remove</button>
+								{/if}
+								<button class="remind-btn remind-btn-save" onclick={saveReminder}>
+									{reminderData ? 'Update' : 'Set reminder'}
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+				<div class="translate-wrap">
+					<button class="act translate-btn" class:act-on={translatedHtml !== null} onclick={translateArticle} disabled={!article.content || loadingTranslate}>
+						<Languages size={12} strokeWidth={1.4} />
+						{loadingTranslate ? 'Translating…' : 'Translate'}
+					</button>
+					<button class="act lang-chevron" class:act-on={showLangPicker} onclick={() => showLangPicker = !showLangPicker} title="Pick language">
+						<ChevronDown size={10} strokeWidth={1.6} />
+					</button>
+					{#if showLangPicker}
+						<div class="lang-dropdown">
+							{#each LANGS as [code, name]}
+								<button
+									class="lang-opt"
+									class:active={targetLang === code}
+									onclick={() => { targetLang = code; showLangPicker = false; }}
+								>
+									{name}
+									{#if targetLang === code}<Check size={10} strokeWidth={1.8} />{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<div class="similar-wrap">
 				<button class="act" class:act-on={showSimilar} onclick={fetchSimilar}>
-					<svg width="12" height="12" viewBox="0 0 15 15" fill="none">
-						<path d="M7.5 1.5L9 6L13.5 7.5L9 9L7.5 13.5L6 9L1.5 7.5L6 6Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-					</svg>
-					{loadingSimilar ? '…' : 'Similar'}
+					<Sparkles size={12} strokeWidth={1.4} />
+					Similar
 				</button>
 				{#if showSimilar}
 					<div class="similar-dropdown">
@@ -151,7 +326,7 @@
 				{/if}
 			</div>
 			<button class="act act-del" onclick={deleteArticle}>
-				<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+				<Trash2 size={12} strokeWidth={1.4} />
 				Delete
 			</button>
 		</div>
@@ -173,14 +348,18 @@
 			{#if article.source === 'pdf'}<span class="source-badge source-pdf">PDF</span>{/if}
 		</div>
 
-		<h1 class="article-title">{article.title}</h1>
+		<h1 class="article-title">{translatedTitle ?? article.title}</h1>
 
 		{#if article.coverImage}
 			<img src={article.coverImage} alt="" class="cover"
 				onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 		{/if}
 
-		{#if article.content}
+		{#if translatedHtml !== null}
+			<div class="prose prose-neutral dark:prose-invert max-w-none">
+				{@html translatedHtml}
+			</div>
+		{:else if article.content}
 			<div class="prose prose-neutral dark:prose-invert max-w-none">
 				{@html article.content}
 			</div>
@@ -376,6 +555,134 @@
 		text-decoration: underline;
 		text-underline-offset: 2px;
 	}
+
+	.remind-wrap {
+		position: relative;
+	}
+
+	.remind-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		width: 230px;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		z-index: 50;
+		padding: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.remind-label {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-subtle);
+		margin: 0;
+	}
+
+	.remind-input {
+		font-size: 0.8125rem;
+		font-family: inherit;
+		color: var(--color-text);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 5px;
+		padding: 0.3em 0.5em;
+		width: 100%;
+		box-sizing: border-box;
+		outline: none;
+	}
+
+	.remind-input:focus {
+		border-color: var(--color-border-strong);
+	}
+
+	.remind-actions {
+		display: flex;
+		gap: 0.375rem;
+		justify-content: flex-end;
+	}
+
+	.remind-btn {
+		font-size: 0.75rem;
+		font-family: inherit;
+		padding: 0.25em 0.6em;
+		border-radius: 5px;
+		border: 1px solid var(--color-border);
+		cursor: pointer;
+		background: none;
+		color: var(--color-muted);
+		transition: all 0.1s;
+	}
+
+	.remind-btn-save {
+		background: var(--color-text);
+		border-color: var(--color-text);
+		color: #fff;
+	}
+
+	.remind-btn-del:hover {
+		background: var(--color-danger-bg);
+		border-color: var(--color-danger-border);
+		color: var(--color-danger);
+	}
+
+	.translate-wrap {
+		display: inline-flex;
+		align-items: center;
+		position: relative;
+	}
+
+	.translate-btn {
+		border-radius: 5px 0 0 5px;
+	}
+
+	.lang-chevron {
+		border-left: none;
+		border-radius: 0 5px 5px 0;
+		padding: 0.2em 0.4em;
+		align-self: stretch;
+	}
+
+	.lang-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		z-index: 50;
+		overflow: hidden;
+		min-width: 130px;
+		padding: 0.25rem;
+	}
+
+	.lang-opt {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.3rem 0.6rem;
+		background: none;
+		border: none;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.1s;
+	}
+
+	.lang-opt:hover { background: var(--color-bg); }
+	.lang-opt.active { font-weight: 500; }
 
 	.similar-wrap {
 		position: relative;

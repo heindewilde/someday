@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { articles, tags, articleTags, collections, articleCollections } from '$lib/server/schema';
+import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
 import { eq, and, desc, sql, like, or, lte, gte } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
@@ -96,11 +96,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		const page = filtered.slice(offset, offset + PAGE_SIZE);
 		const pageIds = page.map(a => a.id as string);
 
-		const [colMap, allTags, allCollections, counts] = await Promise.all([
+		const [colMap, allTags, allCollections, counts, allReminders] = await Promise.all([
 			fetchArticleCollections(pageIds),
 			getTags(userId),
 			getCollections(userId),
-			getCounts(userId)
+			getCounts(userId),
+			getReminders(userId)
 		]);
 
 		return {
@@ -115,7 +116,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			counts,
 			total,
 			offset,
-			pageSize: PAGE_SIZE
+			pageSize: PAGE_SIZE,
+			reminders: allReminders
 		};
 	}
 
@@ -149,11 +151,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 
-	const [colMap, allTags, allCollections, counts] = await Promise.all([
+	const [colMap, allTags, allCollections, counts, allReminders] = await Promise.all([
 		fetchArticleCollections(articleIds),
 		getTags(userId),
 		getCollections(userId),
-		getCounts(userId)
+		getCounts(userId),
+		getReminders(userId)
 	]);
 
 	return {
@@ -168,7 +171,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		counts,
 		total,
 		offset,
-		pageSize: PAGE_SIZE
+		pageSize: PAGE_SIZE,
+		reminders: allReminders
 	};
 };
 
@@ -222,6 +226,20 @@ async function getCounts(userId: string) {
 			words: totalWords
 		}
 	};
+}
+
+async function getReminders(userId: string) {
+	return db
+		.select({
+			id: reminders.id,
+			articleId: reminders.articleId,
+			remindAt: reminders.remindAt,
+			articleTitle: articles.title
+		})
+		.from(reminders)
+		.innerJoin(articles, eq(reminders.articleId, articles.id))
+		.where(eq(reminders.userId, userId))
+		.orderBy(reminders.remindAt);
 }
 
 async function getTags(userId: string) {

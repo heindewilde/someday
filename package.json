@@ -32,6 +32,7 @@
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"bcryptjs": "^3.0.3",
 		"drizzle-orm": "^0.45.2",
-		"jsdom": "^29.0.2"
+		"jsdom": "^29.0.2",
+		"lucide-svelte": "^0.577.0"
 	}
 }

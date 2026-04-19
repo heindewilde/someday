@@ -60,3 +60,11 @@ export const articleTags = sqliteTable('article_tags', {
 	articleId: text('article_id').notNull().references(() => articles.id, { onDelete: 'cascade' }),
 	tagId: text('tag_id').notNull().references(() => tags.id, { onDelete: 'cascade' })
 }, (t) => [primaryKey({ columns: [t.articleId, t.tagId] })]);
+
+export const reminders = sqliteTable('reminders', {
+	id: text('id').primaryKey().$defaultFn(() => createId()),
+	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	articleId: text('article_id').notNull().references(() => articles.id, { onDelete: 'cascade' }),
+	remindAt: integer('remind_at', { mode: 'timestamp' }).notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});

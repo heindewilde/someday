@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
+	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3 } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -27,6 +28,25 @@
 	let searchValue = $state(data.q ?? '');
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let showStats = $state(false);
+	let showReminders = $state(false);
+	// svelte-ignore state_referenced_locally
+	let reminderList = $state([...data.reminders]);
+	$effect(() => { reminderList = [...data.reminders]; });
+
+	const reminderDotVisible = $derived(
+		reminderList.some(r => new Date(r.remindAt).getTime() - Date.now() < 24 * 60 * 60 * 1000)
+	);
+
+	function fmtReminderDate(d: Date): string {
+		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+			+ ' · '
+			+ d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+	}
+
+	async function removeReminder(id: string) {
+		const res = await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+		if (res.ok) reminderList = reminderList.filter(r => r.id !== id);
+	}
 	let showCollectionPicker = $state<string | null>(null);
 	let sidebarOpen = $state(false);
 	let saving = $state(false);
@@ -51,6 +71,8 @@
 		function close(e: MouseEvent) {
 			if (!(e.target as HTMLElement).closest('.col-picker-wrap')) showCollectionPicker = null;
 			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
+			if (!(e.target as HTMLElement).closest('.reminders-anchor')) showReminders = false;
+			if (!(e.target as HTMLElement).closest('.stats-anchor')) showStats = false;
 		}
 		window.addEventListener('mousedown', close);
 		return () => window.removeEventListener('mousedown', close);
@@ -349,9 +371,7 @@
 <div class="app">
 	<header class="mobile-header">
 		<button class="hamburger" onclick={() => sidebarOpen = !sidebarOpen} aria-label="Toggle menu">
-			<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-				<path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-			</svg>
+			<Menu size={18} strokeWidth={1.8} />
 		</button>
 		<span class="logo-text">someday</span>
 	</header>
@@ -373,7 +393,7 @@
 				class:active={data.filter === 'unread' && !data.activeTag && !data.activeCollection}
 				onclick={() => navTo({ filter: 'unread', tag: null, collection: null })}
 			>
-				<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 3h11M2 7.5h11M2 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+				<BookOpen size={15} strokeWidth={1.4} />
 				Unread
 				{#if data.counts.unread > 0}<span class="badge">{data.counts.unread}</span>{/if}
 			</button>
@@ -382,7 +402,7 @@
 				class:active={data.filter === 'read' && !data.activeTag && !data.activeCollection}
 				onclick={() => navTo({ filter: 'read', tag: null, collection: null })}
 			>
-				<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				<Check size={15} strokeWidth={1.4} />
 				Read
 			</button>
 			<button
@@ -390,7 +410,7 @@
 				class:active={data.filter === 'favorites' && !data.activeTag && !data.activeCollection}
 				onclick={() => navTo({ filter: 'favorites', tag: null, collection: null })}
 			>
-				<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+				<Star size={15} strokeWidth={1.4} />
 				Favorites
 			</button>
 			<button
@@ -398,7 +418,7 @@
 				class:active={data.filter === 'archive'}
 				onclick={() => navTo({ filter: 'archive', tag: null, collection: null })}
 			>
-				<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+				<Archive size={15} strokeWidth={1.4} />
 				Archive
 			</button>
 		</nav>
@@ -407,7 +427,7 @@
 			<div class="section-label-row">
 				<p class="section-label">Collections</p>
 				<div class="info-tip">
-					<svg width="11" height="11" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7v4M7.5 5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+					<Info size={11} strokeWidth={1.4} />
 					<span class="tip-text">Collections are a long-term library. Articles can live in multiple collections at once. Read/unread status doesn't apply here.</span>
 				</div>
 			</div>
@@ -474,7 +494,7 @@
 					class="nav-item new-col-btn"
 					onclick={() => { showNewCollection = true; newCollectionName = ''; }}
 				>
-					<svg width="11" height="11" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v13M1 7.5h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+					<Plus size={11} strokeWidth={1.8} />
 					New collection
 				</button>
 			{/if}
@@ -483,19 +503,19 @@
 		<div class="sidebar-footer">
 			<button class="nav-item" onclick={toggleDark} title={isDark ? 'Switch to light' : 'Switch to dark'}>
 				{#if isDark}
-					<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1M7.5 13v1M1 7.5h1M13 7.5h1M3.2 3.2l.7.7M11.1 11.1l.7.7M11.1 3.2l-.7.7M3.2 11.8l.7-.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+					<Sun size={14} strokeWidth={1.4} />
 					Light mode
 				{:else}
-					<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M3 9A5.5 5.5 0 009.5 3c.28 0 .56.02.83.06A5.5 5.5 0 113 9z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+					<Moon size={14} strokeWidth={1.4} />
 					Dark mode
 				{/if}
 			</button>
 			<a href="/settings" class="nav-item">
-				<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M7.5 9.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/><path d="M12.2 9.2l.8 1.4-1.4 1.4-1.4-.8a4.5 4.5 0 01-1.3.5L8.5 13h-2l-.4-1.3a4.5 4.5 0 01-1.3-.5l-1.4.8-1.4-1.4.8-1.4a4.5 4.5 0 01-.5-1.3L2 7.5v-1l1.3-.4a4.5 4.5 0 01.5-1.3l-.8-1.4 1.4-1.4 1.4.8a4.5 4.5 0 011.3-.5L7.5 2h1l.4 1.3a4.5 4.5 0 011.3.5l1.4-.8 1.4 1.4-.8 1.4a4.5 4.5 0 01.5 1.3L14 7.5v1l-1.3.4a4.5 4.5 0 01-.5 1.3z" stroke="currentColor" stroke-width="1.3"/></svg>
+				<Settings size={14} strokeWidth={1.4} />
 				Settings
 			</a>
 			<a href="/auth/logout" class="nav-item">
-				<svg width="14" height="14" viewBox="0 0 15 15" fill="none"><path d="M9 2H12.5C12.7761 2 13 2.22386 13 2.5V12.5C13 12.7761 12.7761 13 12.5 13H9M6 10.5L9 7.5M9 7.5L6 4.5M9 7.5H2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				<LogOut size={14} strokeWidth={1.4} />
 				Sign out
 			</a>
 		</div>
@@ -503,7 +523,7 @@
 
 	<main class="main">
 		<div class="search-wrap">
-			<svg width="13" height="13" viewBox="0 0 15 15" fill="none" class="search-icon"><path d="M10 6.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM9.36 10.07L12 12.71" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+			<Search size={13} strokeWidth={1.4} />
 			<input
 				class="search-input"
 				type="search"
@@ -634,27 +654,27 @@
 							{#if !data.activeCollection}
 								<button class="act" class:act-on={article.isRead} onclick={() => toggleRead(article.id, article.isRead ?? false)}>
 									{#if article.isRead}
-										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+										<Check size={12} strokeWidth={1.6} />
 										Unread
 									{:else}
-										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/></svg>
+										<Circle size={12} strokeWidth={1.4} />
 										Read
 									{/if}
 								</button>
 							{/if}
 							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleFavorite(article.id, article.isFavorite ?? false)}>
-								<svg width="12" height="12" viewBox="0 0 15 15" fill={article.isFavorite ? 'currentColor' : 'none'}><path d="M7.5 2L9.18 5.41L13 6.01L10.25 8.7L10.91 12.5L7.5 10.73L4.09 12.5L4.75 8.7L2 6.01L5.82 5.41L7.5 2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+								<Star size={12} strokeWidth={1.4} fill={article.isFavorite ? 'currentColor' : 'none'} />
 								{article.isFavorite ? 'Saved' : 'Favorite'}
 							</button>
 							{#if !data.activeCollection}
 								{#if data.filter === 'archive'}
 									<button class="act" onclick={() => unarchiveArticle(article.id)}>
-										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 9V6M6 7.5l1.5-1.5L9 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+										<ArchiveRestore size={12} strokeWidth={1.4} />
 										Unarchive
 									</button>
 								{:else}
 									<button class="act" onclick={() => archiveArticle(article.id)}>
-										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="2" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 5.5v6a1 1 0 001 1h8a1 1 0 001-1v-6" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+										<Archive size={12} strokeWidth={1.4} />
 										Archive
 									</button>
 								{/if}
@@ -666,7 +686,7 @@
 										class:act-on={article.collections.length > 0}
 										onclick={() => showCollectionPicker = showCollectionPicker === article.id ? null : article.id}
 									>
-										<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M1 4.5A1.5 1.5 0 012.5 3h3.672a1.5 1.5 0 011.06.44l.829.828A1.5 1.5 0 009.12 4.8H12.5A1.5 1.5 0 0114 6.3V11.5A1.5 1.5 0 0112.5 13h-10A1.5 1.5 0 011 11.5V4.5z" stroke="currentColor" stroke-width="1.3"/></svg>
+										<Folder size={12} strokeWidth={1.4} />
 										{article.collections.length > 0 ? article.collections.map((c: { name: string }) => c.name).join(', ') : 'Collection'}
 									</button>
 									{#if showCollectionPicker === article.id}
@@ -679,7 +699,7 @@
 												>
 													<span>{col.name}</span>
 													{#if article.collections.some((c: { id: string }) => c.id === col.id)}
-														<svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+														<Check size={10} strokeWidth={1.8} />
 													{/if}
 												</button>
 											{/each}
@@ -689,18 +709,18 @@
 							{/if}
 							{#if data.activeCollection}
 								<button class="act act-remove" onclick={() => { toggleCollection(article.id, data.activeCollection!); }}>
-									<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+									<X size={12} strokeWidth={1.6} />
 									Remove
 								</button>
 							{/if}
 							{#if article.url}
 							<a class="act" href={article.url} target="_blank" rel="noopener">
-								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M9 2H13V6M13 2L6.5 8.5M5.5 3.5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<ExternalLink size={12} strokeWidth={1.4} />
 								Original
 							</a>
 							{/if}
 							<button class="act act-del" onclick={() => deleteArticle(article.id)}>
-								<svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M5 5l5 5M10 5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+								<Trash2 size={12} strokeWidth={1.4} />
 								Delete
 							</button>
 						</div>
@@ -734,6 +754,37 @@
 {/if}
 
 <div class="corner-btns">
+	<div class="reminders-anchor">
+		{#if showReminders}
+			<div class="reminders-popover">
+				<p class="stats-label">Reminders</p>
+				{#if reminderList.length === 0}
+					<p class="reminders-empty">No reminders set.</p>
+				{:else}
+					{#each reminderList as r}
+						<div class="reminder-row">
+							<div class="reminder-info">
+								<a href="/articles/{r.articleId}" class="reminder-title">{r.articleTitle}</a>
+								<span class="reminder-time">{fmtReminderDate(new Date(r.remindAt))}</span>
+							</div>
+							<button class="reminder-del" onclick={() => removeReminder(r.id)} title="Remove reminder">
+								<X size={10} strokeWidth={1.6} />
+							</button>
+						</div>
+					{/each}
+				{/if}
+			</div>
+		{/if}
+		<button
+			class="corner-btn"
+			class:corner-btn-dot={reminderDotVisible}
+			onclick={() => { showReminders = !showReminders; showStats = false; }}
+			title="Reminders"
+			aria-label="Reminders"
+		>
+			<Bell size={13} strokeWidth={1.4} />
+		</button>
+	</div>
 	<div class="stats-anchor">
 		{#if showStats}
 			<div class="stats-popover">
@@ -758,11 +809,7 @@
 			title="Reading stats"
 			aria-label="Reading stats"
 		>
-			<svg width="13" height="13" viewBox="0 0 15 15" fill="none">
-				<rect x="1" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>
-				<rect x="6" y="5" width="3" height="9" rx="0.5" fill="currentColor"/>
-				<rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>
-			</svg>
+			<BarChart3 size={13} strokeWidth={1.4} />
 		</button>
 	</div>
 	<button
@@ -942,7 +989,7 @@
 		transition: border-color 0.15s;
 	}
 	.search-wrap:focus-within { border-color: var(--color-text); }
-	.search-icon { color: var(--color-subtle); flex-shrink: 0; }
+	.search-wrap :global(svg) { color: var(--color-subtle); flex-shrink: 0; }
 	.search-input {
 		flex: 1;
 		border: none;
@@ -1501,6 +1548,108 @@
 		position: relative;
 		display: flex;
 		align-items: center;
+	}
+
+	.reminders-anchor {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+
+	.corner-btn-dot {
+		position: relative;
+	}
+
+	.corner-btn-dot::after {
+		content: '';
+		position: absolute;
+		top: 2px;
+		right: 2px;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: #ef4444;
+		border: 1.5px solid var(--color-surface);
+	}
+
+	.reminders-popover {
+		position: absolute;
+		bottom: calc(100% + 0.5rem);
+		right: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		padding: 0.875rem 1rem;
+		min-width: 240px;
+		max-width: 300px;
+		max-height: 320px;
+		overflow-y: auto;
+	}
+
+	.reminders-empty {
+		font-size: 0.8125rem;
+		color: var(--color-muted);
+		margin: 0;
+	}
+
+	.reminder-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		padding: 0.4rem 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.reminder-row:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	.reminder-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.reminder-title {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-text);
+		text-decoration: none;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.reminder-title:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+	.reminder-time {
+		font-size: 0.6875rem;
+		color: var(--color-subtle);
+	}
+
+	.reminder-del {
+		display: grid;
+		place-items: center;
+		width: 1.25rem;
+		height: 1.25rem;
+		flex-shrink: 0;
+		background: none;
+		border: none;
+		color: var(--color-subtle);
+		cursor: pointer;
+		border-radius: 3px;
+		padding: 0;
+		margin-top: 1px;
+		transition: color 0.1s, background 0.1s;
+	}
+
+	.reminder-del:hover {
+		color: var(--color-danger);
+		background: var(--color-danger-bg);
 	}
 
 	.corner-btn {
