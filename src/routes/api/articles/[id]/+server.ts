@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { articles, collections } from '$lib/server/schema';
+import { articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -8,7 +8,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
 
 	const body = await request.json();
-	const allowed = ['isRead', 'isArchived', 'isFavorite', 'collectionId', 'readAt'] as const;
+	const allowed = ['isRead', 'isArchived', 'isFavorite', 'readAt'] as const;
 	const updates: Record<string, unknown> = {};
 
 	for (const key of allowed) {
@@ -20,14 +20,6 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!Object.keys(updates).length) error(400, 'No valid fields to update');
-
-	if (updates.collectionId != null) {
-		const [col] = await db
-			.select({ id: collections.id })
-			.from(collections)
-			.where(and(eq(collections.id, updates.collectionId as string), eq(collections.userId, locals.user.id)));
-		if (!col) error(403, 'Collection not found');
-	}
 
 	await db
 		.update(articles)

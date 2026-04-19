@@ -23,7 +23,7 @@
 <style>
 	.toaster {
 		position: fixed;
-		bottom: 1.25rem;
+		bottom: 4.5rem;
 		right: 1.25rem;
 		display: flex;
 		flex-direction: column;
@@ -48,21 +48,32 @@
 		animation: slide-in 0.15s ease;
 	}
 
+	@media (max-width: 768px) {
+		.toaster {
+			bottom: 1.25rem;
+			right: 1rem;
+			left: 1rem;
+		}
+
+		.toast {
+			min-width: unset;
+			max-width: unset;
+		}
+	}
+
 	@keyframes slide-in {
 		from { opacity: 0; transform: translateY(6px); }
 		to { opacity: 1; transform: translateY(0); }
 	}
 
 	.toast-error {
-		border-color: #fca5a5;
-		background: #fef2f2;
-		color: #dc2626;
+		border-color: var(--color-danger-border);
+		background: var(--color-danger-bg);
 	}
 
 	.toast-success {
-		border-color: #86efac;
-		background: #f0fdf4;
-		color: #16a34a;
+		border-color: var(--color-success-border);
+		background: var(--color-success-bg);
 	}
 
 	.toast-msg {
@@ -70,8 +81,8 @@
 		color: var(--color-text);
 	}
 
-	.toast-error .toast-msg { color: #dc2626; }
-	.toast-success .toast-msg { color: #16a34a; }
+	.toast-error .toast-msg { color: var(--color-danger); }
+	.toast-success .toast-msg { color: var(--color-success); }
 
 	.toast-undo {
 		background: var(--color-text);

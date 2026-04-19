@@ -11,9 +11,11 @@
 	<div
 		class="modal"
 		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => e.stopPropagation()}
 		role="dialog"
 		aria-modal="true"
 		aria-label="Keyboard shortcuts"
+		tabindex="-1"
 	>
 		<div class="modal-header">
 			<h2>Keyboard shortcuts</h2>
@@ -161,5 +163,10 @@
 		margin: 1.25rem 0 0;
 		border-top: 1px solid var(--color-border);
 		padding-top: 0.75rem;
+	}
+
+	@media (max-width: 480px) {
+		.modal { padding: 1.25rem 1rem; }
+		dt { min-width: 5.5rem; }
 	}
 </style>

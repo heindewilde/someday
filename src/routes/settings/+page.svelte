@@ -1,7 +1,9 @@
 <script lang="ts">
 	let { data } = $props();
 
+	// svelte-ignore state_referenced_locally
 	let nameValue = $state(data.user.name ?? '');
+	// svelte-ignore state_referenced_locally
 	let emailValue = $state(data.user.email ?? '');
 	let emailPassword = $state('');
 	let currentPassword = $state('');
@@ -90,12 +92,12 @@
 			<h2>Email address</h2>
 			<p class="desc">Confirm your password to change your email.</p>
 			<div class="field">
-				<label>New email</label>
-				<input type="email" bind:value={emailValue} />
+				<label for="email">New email</label>
+				<input id="email" type="email" bind:value={emailValue} />
 			</div>
 			<div class="field">
-				<label>Current password</label>
-				<input type="password" bind:value={emailPassword} placeholder="••••••••" autocomplete="current-password" />
+				<label for="email-password">Current password</label>
+				<input id="email-password" type="password" bind:value={emailPassword} placeholder="••••••••" autocomplete="current-password" />
 			</div>
 			{#if emailStatus}
 				<p class="status" class:error={emailStatus.type === 'error'}>{emailStatus.message}</p>
@@ -107,12 +109,12 @@
 			<h2>Change password</h2>
 			<p class="desc">Use at least 8 characters.</p>
 			<div class="field">
-				<label>Current password</label>
-				<input type="password" bind:value={currentPassword} placeholder="••••••••" autocomplete="current-password" />
+				<label for="current-password">Current password</label>
+				<input id="current-password" type="password" bind:value={currentPassword} placeholder="••••••••" autocomplete="current-password" />
 			</div>
 			<div class="field">
-				<label>New password</label>
-				<input type="password" bind:value={newPassword} placeholder="••••••••" autocomplete="new-password" />
+				<label for="new-password">New password</label>
+				<input id="new-password" type="password" bind:value={newPassword} placeholder="••••••••" autocomplete="new-password" />
 			</div>
 			{#if passwordStatus}
 				<p class="status" class:error={passwordStatus.type === 'error'}>{passwordStatus.message}</p>
@@ -202,7 +204,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		padding: 0.5rem 0.75rem;
-		font-size: 0.9375rem;
+		font-size: 1rem;
 		font-family: inherit;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -215,11 +217,11 @@
 
 	.status {
 		font-size: 0.8125rem;
-		color: #16a34a;
+		color: var(--color-success);
 		margin: 0 0 0.625rem;
 	}
 
-	.status.error { color: #dc2626; }
+	.status.error { color: var(--color-danger); }
 
 	.btn {
 		display: inline-flex;

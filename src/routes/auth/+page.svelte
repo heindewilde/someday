@@ -12,8 +12,7 @@
 <div class="auth-page">
 	<div class="auth-box">
 		<div class="auth-logo">
-			<span class="logo-mark">S</span>
-			<span class="logo-text">Someday</span>
+			<span class="logo-text">someday</span>
 		</div>
 
 		<h1>{mode === 'login' ? 'Welcome back' : 'Create account'}</h1>
@@ -91,30 +90,14 @@
 	}
 
 	.auth-logo {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		margin-bottom: 1.5rem;
 	}
 
-	.logo-mark {
-		width: 2rem;
-		height: 2rem;
-		background: var(--color-text);
-		color: #fff;
-		border-radius: var(--radius-sm);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 600;
-		font-size: 0.875rem;
-		letter-spacing: -0.01em;
-	}
-
 	.logo-text {
-		font-weight: 600;
-		font-size: 1rem;
-		letter-spacing: -0.02em;
+		font-size: 1.25rem;
+		font-weight: 700;
+		letter-spacing: -0.04em;
+		color: var(--color-text);
 	}
 
 	h1 {
@@ -131,9 +114,9 @@
 	}
 
 	.error-banner {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
+		background: var(--color-danger-bg);
+		border: 1px solid var(--color-danger-border);
+		color: var(--color-danger);
 		border-radius: var(--radius-md);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.875rem;
@@ -157,7 +140,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		padding: 0.5625rem 0.75rem;
-		font-size: 0.9375rem;
+		font-size: 1rem;
 		font-family: inherit;
 		background: var(--color-surface);
 		color: var(--color-text);
