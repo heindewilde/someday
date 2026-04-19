@@ -250,7 +250,7 @@
 			</button>
 			<div class="remind-wrap">
 					<button class="act" class:act-on={reminderData !== null} onclick={() => { reminderDatetime = reminderInputValue(); showReminder = !showReminder; }}>
-						<Bell size={12} strokeWidth={1.4} />
+						<Bell size={12} strokeWidth={1.4} fill={reminderData !== null ? 'currentColor' : 'none'} />
 						Remind
 					</button>
 					{#if showReminder}
@@ -277,7 +277,7 @@
 						<Languages size={12} strokeWidth={1.4} />
 						{loadingTranslate ? 'Translating…' : 'Translate'}
 					</button>
-					<button class="act lang-chevron" class:act-on={showLangPicker} onclick={() => showLangPicker = !showLangPicker} title="Pick language">
+					<button class="act lang-chevron" class:act-on={translatedHtml !== null || showLangPicker} onclick={() => showLangPicker = !showLangPicker} title="Pick language">
 						<ChevronDown size={10} strokeWidth={1.6} />
 					</button>
 					{#if showLangPicker}
@@ -440,9 +440,9 @@
 	}
 
 	.act-on {
-		background: var(--color-text);
-		border-color: var(--color-text);
-		color: #fff;
+		background: var(--color-border);
+		border-color: var(--color-border-strong);
+		color: var(--color-text);
 	}
 
 	.act-del:hover {

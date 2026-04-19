@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
-	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3 } from 'lucide-svelte';
+	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, ChevronDown } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -29,6 +29,8 @@
 	let searchTimer: ReturnType<typeof setTimeout>;
 	let showStats = $state(false);
 	let showReminders = $state(false);
+	let showTagFilter = $state(false);
+	let showTimeFilter = $state(false);
 	// svelte-ignore state_referenced_locally
 	let reminderList = $state([...data.reminders]);
 	$effect(() => { reminderList = [...data.reminders]; });
@@ -73,6 +75,8 @@
 			if (!(e.target as HTMLElement).closest('.col-menu-wrap')) showCollectionMenu = null;
 			if (!(e.target as HTMLElement).closest('.reminders-anchor')) showReminders = false;
 			if (!(e.target as HTMLElement).closest('.stats-anchor')) showStats = false;
+			if (!(e.target as HTMLElement).closest('.tag-filter-wrap')) showTagFilter = false;
+			if (!(e.target as HTMLElement).closest('.time-filter-wrap')) showTimeFilter = false;
 		}
 		window.addEventListener('mousedown', close);
 		return () => window.removeEventListener('mousedown', close);
@@ -536,27 +540,55 @@
 			{/if}
 		</div>
 
-		{#if data.tags.length > 0 || true}
-			<div class="filter-bar">
-				{#each data.tags as tag}
-					<button
-						class="filter-pill"
-						class:active={data.activeTag === tag.slug}
-						onclick={() => navTo({ tag: data.activeTag === tag.slug ? null : tag.slug, collection: null, offset: null })}
-					>{tag.name}</button>
-				{/each}
-				<button
-					class="filter-pill"
-					class:active={data.readingTime === 'under5'}
-					onclick={() => navTo({ time: data.readingTime === 'under5' ? null : 'under5', offset: null })}
-				>&lt; 5 min</button>
-				<button
-					class="filter-pill"
-					class:active={data.readingTime === 'over20'}
-					onclick={() => navTo({ time: data.readingTime === 'over20' ? null : 'over20', offset: null })}
-				>&gt; 20 min</button>
+		<div class="filter-bar">
+			{#if data.tags.length > 0}
+				<div class="filter-dd-wrap tag-filter-wrap">
+					<button class="filter-pill" class:active={!!data.activeTag} onclick={() => { showTagFilter = !showTagFilter; showTimeFilter = false; }}>
+						<Tag size={11} strokeWidth={1.4} />
+						{data.activeTag ? (data.tags.find(t => t.slug === data.activeTag)?.name ?? data.activeTag) : 'Tags'}
+						<ChevronDown size={10} strokeWidth={1.6} />
+					</button>
+					{#if showTagFilter}
+						<div class="filter-dropdown">
+							{#each data.tags as tag}
+								<button
+									class="filter-dd-opt"
+									class:active={data.activeTag === tag.slug}
+									onclick={() => { navTo({ tag: data.activeTag === tag.slug ? null : tag.slug, collection: null, offset: null }); showTagFilter = false; }}
+								>
+									<span>{tag.name}{#if tag.articleCount > 0}<span class="filter-dd-count">{tag.articleCount}</span>{/if}</span>
+									{#if data.activeTag === tag.slug}<Check size={10} strokeWidth={1.8} />{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+			<div class="filter-dd-wrap time-filter-wrap">
+				<button class="filter-pill" class:active={!!data.readingTime} onclick={() => { showTimeFilter = !showTimeFilter; showTagFilter = false; }}>
+					<Clock size={11} strokeWidth={1.4} />
+					{data.readingTime === 'under5' ? '< 5 min' : data.readingTime === 'under10' ? '< 10 min' : data.readingTime === 'under15' ? '< 15 min' : data.readingTime === 'under20' ? '< 20 min' : data.readingTime === 'over20' ? '> 20 min' : 'Reading time'}
+					<ChevronDown size={10} strokeWidth={1.6} />
+				</button>
+				{#if showTimeFilter}
+					<div class="filter-dropdown">
+						{#each [['under5', '< 5 min'], ['under10', '< 10 min'], ['under15', '< 15 min'], ['under20', '< 20 min'], ['over20', '> 20 min']] as [val, label]}
+							<button
+								class="filter-dd-opt"
+								class:active={data.readingTime === val}
+								onclick={() => { navTo({ time: data.readingTime === val ? null : val, offset: null }); showTimeFilter = false; }}
+							>
+								<span>{label}</span>
+								{#if data.readingTime === val}<Check size={10} strokeWidth={1.8} />{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
-		{/if}
+			{#if data.activeTag || data.readingTime}
+				<button class="clear-filters" onclick={() => navTo({ tag: null, time: null, offset: null })}>Clear filters</button>
+			{/if}
+		</div>
 
 		<div class="list-header">
 			<h2>{data.activeCollection ? (data.collections.find(c => c.id === data.activeCollection)?.name ?? 'Collection') : (filterLabels[data.filter] ?? 'Articles')}{data.activeTag ? ` · #${data.activeTag}` : ''}{data.q ? ` · "${data.q}"` : ''}</h2>
@@ -664,7 +696,7 @@
 							{/if}
 							<button class="act" class:act-on={article.isFavorite} onclick={() => toggleFavorite(article.id, article.isFavorite ?? false)}>
 								<Star size={12} strokeWidth={1.4} fill={article.isFavorite ? 'currentColor' : 'none'} />
-								{article.isFavorite ? 'Saved' : 'Favorite'}
+								{article.isFavorite ? 'Favorited' : 'Favorite'}
 							</button>
 							{#if !data.activeCollection}
 								{#if data.filter === 'archive'}
@@ -686,8 +718,8 @@
 										class:act-on={article.collections.length > 0}
 										onclick={() => showCollectionPicker = showCollectionPicker === article.id ? null : article.id}
 									>
-										<Folder size={12} strokeWidth={1.4} />
-										{article.collections.length > 0 ? article.collections.map((c: { name: string }) => c.name).join(', ') : 'Collection'}
+										<Folder size={12} strokeWidth={1.4} fill={article.collections.length > 0 ? 'currentColor' : 'none'} />
+										{article.collections.length > 0 ? 'Saved' : 'Collection'}
 									</button>
 									{#if showCollectionPicker === article.id}
 										<div class="col-picker-dropdown">
@@ -789,17 +821,17 @@
 		{#if showStats}
 			<div class="stats-popover">
 				<p class="stats-label">Reading stats</p>
-				<div class="stats-row">
-					<span class="stats-value">{stats.articles.toLocaleString()}</span>
-					<span class="stats-unit">articles read</span>
+				<div class="stats-item">
+					<span class="stats-desc">Articles read</span>
+					<span class="stats-num">{stats.articles.toLocaleString()}</span>
 				</div>
-				<div class="stats-row">
-					<span class="stats-value">{stats.words.toLocaleString()}</span>
-					<span class="stats-unit">words</span>
+				<div class="stats-item">
+					<span class="stats-desc">Words</span>
+					<span class="stats-num">{stats.words.toLocaleString()}</span>
 				</div>
-				<div class="stats-row">
-					<span class="stats-value">{fmtTime(stats.minutes)}</span>
-					<span class="stats-unit">reading time</span>
+				<div class="stats-item">
+					<span class="stats-desc">Reading time</span>
+					<span class="stats-num">{fmtTime(stats.minutes)}</span>
 				</div>
 			</div>
 		{/if}
@@ -1042,7 +1074,14 @@
 		margin-bottom: 0.875rem;
 	}
 
+	.filter-dd-wrap {
+		position: relative;
+	}
+
 	.filter-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
 		font-size: 0.75rem;
 		font-family: inherit;
 		padding: 0.2em 0.65em;
@@ -1060,9 +1099,62 @@
 	}
 
 	.filter-pill.active {
-		background: var(--color-text);
 		border-color: var(--color-text);
-		color: #fff;
+		color: var(--color-text);
+	}
+
+	.clear-filters {
+		font-size: 0.75rem;
+		font-family: inherit;
+		background: none;
+		border: none;
+		color: var(--color-subtle);
+		cursor: pointer;
+		padding: 0.2em 0.25em;
+		align-self: center;
+		transition: color 0.1s;
+	}
+
+	.clear-filters:hover { color: var(--color-muted); }
+
+	.filter-dropdown {
+		position: absolute;
+		top: calc(100% + 5px);
+		left: 0;
+		min-width: 140px;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-lg);
+		z-index: 30;
+		padding: 0.25rem;
+	}
+
+	.filter-dd-opt {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.3rem 0.6rem;
+		background: none;
+		border: none;
+		border-radius: 4px;
+		font-size: 0.8125rem;
+		font-family: inherit;
+		color: var(--color-text);
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.1s;
+	}
+
+	.filter-dd-opt:hover { background: var(--color-bg); }
+	.filter-dd-opt.active { font-weight: 500; }
+
+	.filter-dd-count {
+		font-size: 0.6875rem;
+		color: var(--color-subtle);
+		margin-left: 0.25rem;
 	}
 
 	/* Collections section header with tooltip */
@@ -1417,9 +1509,9 @@
 	}
 
 	.act-on {
-		background: var(--color-text);
-		border-color: var(--color-text);
-		color: #fff;
+		background: var(--color-border);
+		border-color: var(--color-border-strong);
+		color: var(--color-text);
 	}
 
 	/* Collection sidebar item */
@@ -1563,13 +1655,13 @@
 	.corner-btn-dot::after {
 		content: '';
 		position: absolute;
-		top: 2px;
-		right: 2px;
-		width: 6px;
-		height: 6px;
+		top: 1px;
+		right: 1px;
+		width: 9px;
+		height: 9px;
 		border-radius: 50%;
 		background: #ef4444;
-		border: 1.5px solid var(--color-surface);
+		border: 2px solid var(--color-surface);
 	}
 
 	.reminders-popover {
@@ -1693,26 +1785,30 @@
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		color: var(--color-subtle);
-		margin: 0 0 0.625rem;
+		margin: 0 0 0.5rem;
 	}
 
-	.stats-row {
+	.stats-item {
 		display: flex;
 		align-items: baseline;
-		gap: 0.375rem;
-		padding: 0.2rem 0;
+		justify-content: space-between;
+		gap: 1.25rem;
+		padding: 0.25rem 0;
+		border-bottom: 1px solid var(--color-border);
 	}
 
-	.stats-value {
-		font-size: 1rem;
-		font-weight: 600;
-		letter-spacing: -0.02em;
-		color: var(--color-text);
-	}
+	.stats-item:last-child { border-bottom: none; padding-bottom: 0; }
 
-	.stats-unit {
-		font-size: 0.75rem;
+	.stats-desc {
+		font-size: 0.8125rem;
 		color: var(--color-muted);
+	}
+
+	.stats-num {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: -0.01em;
+		color: var(--color-text);
 	}
 
 	/* ── Mobile header ── */

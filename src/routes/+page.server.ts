@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
-import { eq, and, desc, sql, like, or, lte, gte } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, lte, gt } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 30;
@@ -35,7 +35,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	if (readingTime === 'under5') conditions.push(lte(articles.readingTimeMinutes, 5));
-	else if (readingTime === 'over20') conditions.push(gte(articles.readingTimeMinutes, 20));
+	else if (readingTime === 'under10') conditions.push(lte(articles.readingTimeMinutes, 10));
+	else if (readingTime === 'under15') conditions.push(lte(articles.readingTimeMinutes, 15));
+	else if (readingTime === 'under20') conditions.push(lte(articles.readingTimeMinutes, 20));
+	else if (readingTime === 'over20') conditions.push(gt(articles.readingTimeMinutes, 20));
 
 	if (q) {
 		const escaped = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
