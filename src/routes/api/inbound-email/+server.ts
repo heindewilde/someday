@@ -41,11 +41,13 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
 	let content: string | null = null;
 	let readingTimeMinutes = 1;
+	let wordCount = 0;
 
 	if (payload.HtmlBody?.trim()) {
 		content = sanitizeEmailHtml(payload.HtmlBody);
 		const text = payload.TextBody?.trim() || content.replace(/<[^>]+>/g, ' ');
 		readingTimeMinutes = estimateReadingTime(text);
+		wordCount = text.trim().split(/\s+/).filter(Boolean).length;
 	} else if (payload.TextBody?.trim()) {
 		const esc = payload.TextBody
 			.replace(/&/g, '&amp;')
@@ -53,6 +55,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			.replace(/>/g, '&gt;');
 		content = `<pre style="white-space:pre-wrap;word-break:break-word;">${esc}</pre>`;
 		readingTimeMinutes = estimateReadingTime(payload.TextBody);
+		wordCount = payload.TextBody.trim().split(/\s+/).filter(Boolean).length;
 	}
 
 	await db.insert(articles).values({
@@ -64,6 +67,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
 		siteName: fromName ?? fromDomain ?? fromEmail,
 		source: 'email',
 		readingTimeMinutes,
+		wordCount,
+		domain: fromDomain ?? null,
 	});
 
 	return json({ ok: true });

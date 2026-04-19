@@ -10,6 +10,7 @@ export interface ParsedArticle {
 	favicon: string | null;
 	coverImage: string | null;
 	readingTimeMinutes: number;
+	wordCount: number;
 	isPaywalled: boolean;
 	source: string | null;
 }
@@ -120,7 +121,7 @@ function detectProduct(doc: Document, url: string): boolean {
 	return false;
 }
 
-function extractMeta(doc: Document, url: string): Omit<ParsedArticle, 'content' | 'readingTimeMinutes' | 'isPaywalled' | 'source'> {
+function extractMeta(doc: Document, url: string): Omit<ParsedArticle, 'content' | 'readingTimeMinutes' | 'wordCount' | 'isPaywalled' | 'source'> {
 	const origin = new URL(url).origin;
 
 	const title =
@@ -173,6 +174,7 @@ async function parseXUrl(url: string): Promise<ParsedArticle> {
 			favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 			coverImage: null,
 			readingTimeMinutes: 1,
+			wordCount: 0,
 			isPaywalled: false,
 			source: null,
 		};
@@ -198,6 +200,7 @@ async function parseXUrl(url: string): Promise<ParsedArticle> {
 				favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 				coverImage: null,
 				readingTimeMinutes: 1,
+				wordCount: tweetText ? tweetText.split(/\s+/).filter(Boolean).length : 0,
 				isPaywalled: false,
 				source: null,
 			};
@@ -213,6 +216,7 @@ async function parseXUrl(url: string): Promise<ParsedArticle> {
 		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 		coverImage: null,
 		readingTimeMinutes: 1,
+		wordCount: 0,
 		isPaywalled: false,
 		source: null,
 	};
@@ -252,6 +256,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 			favicon: `${new URL(url).origin}/favicon.ico`,
 			coverImage: null,
 			readingTimeMinutes: 1,
+			wordCount: 0,
 			isPaywalled: false,
 			source: 'pdf',
 		};
@@ -271,6 +276,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 			...meta,
 			content: null,
 			readingTimeMinutes: 1,
+			wordCount: 0,
 			isPaywalled: false,
 			source: 'product',
 		};
@@ -295,6 +301,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 	const content = article?.content ?? null;
 	const textContent = article?.textContent ?? '';
 	const readingTimeMinutes = estimateReadingTime(textContent || description || '');
+	const wordCount = (textContent || '').trim().split(/\s+/).filter(Boolean).length;
 
 	return {
 		title,
@@ -305,6 +312,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 		favicon: meta.favicon,
 		coverImage: meta.coverImage,
 		readingTimeMinutes,
+		wordCount,
 		isPaywalled,
 		source: null,
 	};

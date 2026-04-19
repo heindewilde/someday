@@ -41,33 +41,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	if (existing) error(409, { message: 'You already saved this article.' });
 
+	const domain = parsedUrl.hostname.replace(/^www\./, '');
+
 	try {
 		const parsed = await parseArticle(normalized);
 		const [article] = await db
 			.insert(articles)
-			.values({ ...parsed, url: normalized, userId: locals.user.id })
+			.values({ ...parsed, url: normalized, userId: locals.user.id, domain })
 			.returning();
 		return json(article, { status: 201 });
 	} catch (e) {
 		// Graceful fallback: save as bookmark-only with hostname metadata
 		console.error('Parse error, falling back to bookmark:', e);
 		try {
-			const hostname = parsedUrl.hostname.replace(/^www\./, '');
 			const [article] = await db
 				.insert(articles)
 				.values({
 					url: normalized,
 					userId: locals.user.id,
-					title: hostname,
+					title: domain,
 					description: null,
 					content: null,
 					author: null,
-					siteName: hostname,
+					siteName: domain,
 					favicon: `${parsedUrl.origin}/favicon.ico`,
 					coverImage: null,
 					readingTimeMinutes: 1,
+					wordCount: 0,
 					isPaywalled: false,
 					source: null,
+					domain,
 				})
 				.returning();
 			return json({ ...article, _fallback: true }, { status: 201 });

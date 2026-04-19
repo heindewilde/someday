@@ -144,6 +144,18 @@ export async function migrate() {
 		// Already exists
 	}
 
+	try {
+		await client.execute(`ALTER TABLE articles ADD COLUMN word_count INTEGER DEFAULT 0`);
+	} catch {
+		// Already exists
+	}
+
+	try {
+		await client.execute(`ALTER TABLE articles ADD COLUMN domain TEXT`);
+	} catch {
+		// Already exists
+	}
+
 	await client.execute(`
 		CREATE TABLE IF NOT EXISTS reminders (
 			id TEXT PRIMARY KEY,
@@ -216,4 +228,49 @@ export async function migrate() {
 	await client.execute(
 		`CREATE INDEX IF NOT EXISTS idx_tags_user ON tags(user_id, slug)`
 	);
+	await client.execute(
+		`CREATE INDEX IF NOT EXISTS idx_articles_user_domain ON articles(user_id, domain)`
+	);
+
+	// Backfill word_count and domain for existing rows. Runs in the background
+	// so server startup isn't blocked; idempotent (only touches rows missing
+	// values). The library page degrades gracefully until backfill completes.
+	void backfillDerivedColumns();
+}
+
+async function backfillDerivedColumns() {
+	try {
+		const { rows } = await client.execute(
+			`SELECT id, url, content FROM articles
+			 WHERE (domain IS NULL AND url IS NOT NULL)
+			    OR (word_count IS NULL OR word_count = 0)`
+		);
+		if (rows.length === 0) return;
+
+		const start = Date.now();
+		console.log(`[migrate] Backfilling word_count/domain for ${rows.length} articles...`);
+
+		const BATCH = 200;
+		for (let i = 0; i < rows.length; i += BATCH) {
+			const batch = rows.slice(i, i + BATCH);
+			const statements = batch.map((r) => {
+				let domain: string | null = null;
+				try {
+					if (r.url) domain = new URL(r.url as string).hostname.replace(/^www\./, '');
+				} catch { /* bad url — leave null */ }
+				const html = (r.content as string | null) ?? '';
+				const text = html.replace(/<[^>]+>/g, ' ');
+				const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+				return {
+					sql: `UPDATE articles SET domain = COALESCE(domain, ?), word_count = ? WHERE id = ?`,
+					args: [domain, wordCount, r.id as string]
+				};
+			});
+			await client.batch(statements, 'write');
+		}
+
+		console.log(`[migrate] Backfill done in ${Date.now() - start}ms`);
+	} catch (e) {
+		console.error('[migrate] Backfill failed:', e);
+	}
 }

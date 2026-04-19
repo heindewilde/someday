@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
-import { eq, and, desc, sql, like, or, lte, gt } from 'drizzle-orm';
+import { eq, and, desc, sql, lte, gt } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 30;
@@ -35,6 +35,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		);
 	}
 
+	if (tagSlug) {
+		conditions.push(
+			sql`${articles.id} IN (
+				SELECT at.article_id FROM article_tags at
+				INNER JOIN tags t ON t.id = at.tag_id
+				WHERE t.user_id = ${userId} AND t.slug = ${tagSlug}
+			)`
+		);
+	}
+
 	if (readingTime === 'under5') conditions.push(lte(articles.readingTimeMinutes, 5));
 	else if (readingTime === 'under10') conditions.push(lte(articles.readingTimeMinutes, 10));
 	else if (readingTime === 'under15') conditions.push(lte(articles.readingTimeMinutes, 15));
@@ -42,12 +52,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	else if (readingTime === 'over20') conditions.push(gt(articles.readingTimeMinutes, 20));
 
 	if (domain) {
-		conditions.push(
-			or(
-				like(articles.url, `%://${domain}/%`),
-				like(articles.url, `%://www.${domain}/%`)
-			)!
-		);
+		conditions.push(eq(articles.domain, domain));
 	}
 
 	if (q) {
@@ -84,65 +89,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 
 	const whereClause = and(...conditions);
-
-	let articleList: typeof selectFields extends Record<string, infer V> ? { [K in keyof typeof selectFields]: unknown }[] : never[] = [];
 	let total = 0;
-
-	if (tagSlug) {
-		const allArticles = await db
-			.select(selectFields)
-			.from(articles)
-			.where(whereClause)
-			.orderBy(desc(articles.savedAt));
-
-		const allIds = allArticles.map((a) => a.id as string);
-
-		const tagRows = allIds.length > 0
-			? await db
-				.select({ articleId: articleTags.articleId, tagId: tags.id, tagName: tags.name, tagSlug: tags.slug })
-				.from(articleTags)
-				.innerJoin(tags, eq(articleTags.tagId, tags.id))
-				.where(sql`${articleTags.articleId} IN (${sql.join(allIds.map(id => sql`${id}`), sql`, `)})`)
-			: [];
-
-		const tagMap: Record<string, { id: string; name: string; slug: string }[]> = {};
-		for (const row of tagRows) {
-			if (!tagMap[row.articleId as string]) tagMap[row.articleId as string] = [];
-			tagMap[row.articleId as string].push({ id: row.tagId as string, name: row.tagName as string, slug: row.tagSlug as string });
-		}
-
-		const filtered = allArticles.filter(a => tagMap[a.id as string]?.some(t => t.slug === tagSlug));
-		total = filtered.length;
-		const page = filtered.slice(offset, offset + PAGE_SIZE);
-		const pageIds = page.map(a => a.id as string);
-
-		const [colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
-			fetchArticleCollections(pageIds),
-			getTags(userId),
-			getCollections(userId),
-			getCounts(userId),
-			getReminders(userId),
-			getDomains(userId)
-		]);
-
-		return {
-			articles: page.map(a => ({ ...a, tags: tagMap[a.id as string] ?? [], collections: colMap[a.id as string] ?? [] })),
-			tags: allTags,
-			collections: allCollections,
-			filter,
-			activeTag: tagSlug,
-			activeCollection: collectionId,
-			readingTime,
-			domain,
-			domains: allDomains,
-			q,
-			counts,
-			total,
-			offset,
-			pageSize: PAGE_SIZE,
-			reminders: allReminders
-		};
-	}
 
 	const [countRow] = await db
 		.select({ total: sql<number>`count(*)` })
@@ -223,24 +170,14 @@ async function getCounts(userId: string) {
 			isRead: articles.isRead,
 			isArchived: articles.isArchived,
 			count: sql<number>`count(*)`,
-			minutes: sql<number>`coalesce(sum(reading_time_minutes), 0)`
+			minutes: sql<number>`coalesce(sum(reading_time_minutes), 0)`,
+			words: sql<number>`coalesce(sum(word_count), 0)`
 		})
 		.from(articles)
 		.where(eq(articles.userId, userId))
 		.groupBy(articles.isRead, articles.isArchived);
 
 	const readRows = rows.filter(r => r.isRead);
-
-	const readContent = await db
-		.select({ content: articles.content })
-		.from(articles)
-		.where(and(eq(articles.userId, userId), eq(articles.isRead, true)));
-
-	const totalWords = readContent.reduce((sum, a) => {
-		if (!a.content) return sum;
-		const text = a.content.replace(/<[^>]+>/g, ' ');
-		return sum + text.trim().split(/\s+/).filter(Boolean).length;
-	}, 0);
 
 	return {
 		unread: rows.filter(r => !r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
@@ -249,7 +186,7 @@ async function getCounts(userId: string) {
 		readingStats: {
 			articles: readRows.reduce((s, r) => s + r.count, 0),
 			minutes: readRows.reduce((s, r) => s + r.minutes, 0),
-			words: totalWords
+			words: readRows.reduce((s, r) => s + r.words, 0)
 		}
 	};
 }
@@ -283,22 +220,16 @@ async function getTags(userId: string) {
 
 async function getDomains(userId: string) {
 	const rows = await db
-		.select({ url: articles.url })
+		.select({
+			hostname: articles.domain,
+			count: sql<number>`count(*)`
+		})
 		.from(articles)
-		.where(and(eq(articles.userId, userId), sql`${articles.url} IS NOT NULL`));
+		.where(and(eq(articles.userId, userId), sql`${articles.domain} IS NOT NULL`))
+		.groupBy(articles.domain)
+		.orderBy(desc(sql`count(*)`), articles.domain);
 
-	const counts: Record<string, number> = {};
-	for (const row of rows) {
-		if (!row.url) continue;
-		try {
-			const hostname = new URL(row.url).hostname.replace(/^www\./, '');
-			counts[hostname] = (counts[hostname] ?? 0) + 1;
-		} catch {}
-	}
-
-	return Object.entries(counts)
-		.map(([hostname, count]) => ({ hostname, count }))
-		.sort((a, b) => b.count - a.count || a.hostname.localeCompare(b.hostname));
+	return rows.map(r => ({ hostname: r.hostname!, count: r.count }));
 }
 
 async function getCollections(userId: string) {

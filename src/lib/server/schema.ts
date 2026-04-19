@@ -35,6 +35,8 @@ export const articles = sqliteTable('articles', {
 	favicon: text('favicon'),
 	coverImage: text('cover_image'),
 	readingTimeMinutes: integer('reading_time_minutes').default(0),
+	wordCount: integer('word_count').default(0),
+	domain: text('domain'),
 	isRead: integer('is_read', { mode: 'boolean' }).default(false),
 	isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
 	isFavorite: integer('is_favorite', { mode: 'boolean' }).default(false),

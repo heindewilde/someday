@@ -128,6 +128,7 @@ async function runImport(
 				isArchived,
 				source: parsed.source ?? 'readwise',
 				savedAt,
+				domain: hostname,
 			};
 		} catch {
 			articleValues = {
@@ -141,11 +142,13 @@ async function runImport(
 				favicon: `${new URL(normalizedUrl).origin}/favicon.ico`,
 				coverImage: null,
 				readingTimeMinutes: 1,
+				wordCount: 0,
 				isPaywalled: false,
 				isRead,
 				isArchived,
 				source: 'readwise',
 				savedAt,
+				domain: hostname,
 			};
 		}
 
