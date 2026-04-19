@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const collectionId = url.searchParams.get('collection') ?? null;
 	const q = url.searchParams.get('q')?.trim() || null;
 	const readingTime = url.searchParams.get('time') ?? null;
+	const domain = url.searchParams.get('domain') ?? null;
 	const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10), 0);
 
 	const conditions = [eq(articles.userId, userId)];
@@ -39,6 +40,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	else if (readingTime === 'under15') conditions.push(lte(articles.readingTimeMinutes, 15));
 	else if (readingTime === 'under20') conditions.push(lte(articles.readingTimeMinutes, 20));
 	else if (readingTime === 'over20') conditions.push(gt(articles.readingTimeMinutes, 20));
+
+	if (domain) {
+		conditions.push(
+			or(
+				like(articles.url, `%://${domain}/%`),
+				like(articles.url, `%://www.${domain}/%`)
+			)!
+		);
+	}
 
 	if (q) {
 		const escaped = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -99,12 +109,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		const page = filtered.slice(offset, offset + PAGE_SIZE);
 		const pageIds = page.map(a => a.id as string);
 
-		const [colMap, allTags, allCollections, counts, allReminders] = await Promise.all([
+		const [colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
 			fetchArticleCollections(pageIds),
 			getTags(userId),
 			getCollections(userId),
 			getCounts(userId),
-			getReminders(userId)
+			getReminders(userId),
+			getDomains(userId)
 		]);
 
 		return {
@@ -115,6 +126,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			activeTag: tagSlug,
 			activeCollection: collectionId,
 			readingTime,
+			domain,
+			domains: allDomains,
 			q,
 			counts,
 			total,
@@ -154,12 +167,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 
-	const [colMap, allTags, allCollections, counts, allReminders] = await Promise.all([
+	const [colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
 		fetchArticleCollections(articleIds),
 		getTags(userId),
 		getCollections(userId),
 		getCounts(userId),
-		getReminders(userId)
+		getReminders(userId),
+		getDomains(userId)
 	]);
 
 	return {
@@ -170,6 +184,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		activeTag: tagSlug,
 		activeCollection: collectionId,
 		readingTime,
+		domain,
+		domains: allDomains,
 		q,
 		counts,
 		total,
@@ -256,6 +272,26 @@ async function getTags(userId: string) {
 	]);
 	const countMap = Object.fromEntries(countRows.map(r => [r.tagId, r.count]));
 	return tagList.map(t => ({ ...t, articleCount: countMap[t.id] ?? 0 }));
+}
+
+async function getDomains(userId: string) {
+	const rows = await db
+		.select({ url: articles.url })
+		.from(articles)
+		.where(and(eq(articles.userId, userId), sql`${articles.url} IS NOT NULL`));
+
+	const counts: Record<string, number> = {};
+	for (const row of rows) {
+		if (!row.url) continue;
+		try {
+			const hostname = new URL(row.url).hostname.replace(/^www\./, '');
+			counts[hostname] = (counts[hostname] ?? 0) + 1;
+		} catch {}
+	}
+
+	return Object.entries(counts)
+		.map(([hostname, count]) => ({ hostname, count }))
+		.sort((a, b) => b.count - a.count || a.hostname.localeCompare(b.hostname));
 }
 
 async function getCollections(userId: string) {

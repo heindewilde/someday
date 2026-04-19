@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
-	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, ChevronDown } from 'lucide-svelte';
+	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, Globe, ChevronDown } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -31,6 +31,7 @@
 	let showReminders = $state(false);
 	let showTagFilter = $state(false);
 	let showTimeFilter = $state(false);
+	let showDomainFilter = $state(false);
 	// svelte-ignore state_referenced_locally
 	let reminderList = $state([...data.reminders]);
 	$effect(() => { reminderList = [...data.reminders]; });
@@ -77,6 +78,7 @@
 			if (!(e.target as HTMLElement).closest('.stats-anchor')) showStats = false;
 			if (!(e.target as HTMLElement).closest('.tag-filter-wrap')) showTagFilter = false;
 			if (!(e.target as HTMLElement).closest('.time-filter-wrap')) showTimeFilter = false;
+			if (!(e.target as HTMLElement).closest('.domain-filter-wrap')) showDomainFilter = false;
 		}
 		window.addEventListener('mousedown', close);
 		return () => window.removeEventListener('mousedown', close);
@@ -573,8 +575,31 @@
 					</div>
 				{/if}
 			</div>
-			{#if data.activeTag || data.readingTime}
-				<button class="clear-filters" onclick={() => navTo({ tag: null, time: null, offset: null })}>Clear filters</button>
+			{#if data.domains.length > 0}
+				<div class="filter-dd-wrap domain-filter-wrap">
+					<button class="filter-pill" class:active={!!data.domain} onclick={() => { showDomainFilter = !showDomainFilter; showTagFilter = false; showTimeFilter = false; }}>
+						<Globe size={11} strokeWidth={1.4} />
+						{data.domain ?? 'Site'}
+						<ChevronDown size={10} strokeWidth={1.6} />
+					</button>
+					{#if showDomainFilter}
+						<div class="filter-dropdown">
+							{#each data.domains as d}
+								<button
+									class="filter-dd-opt"
+									class:active={data.domain === d.hostname}
+									onclick={() => { navTo({ domain: data.domain === d.hostname ? null : d.hostname, offset: null }); showDomainFilter = false; }}
+								>
+									<span>{d.hostname}{#if d.count > 0}<span class="filter-dd-count">{d.count}</span>{/if}</span>
+									{#if data.domain === d.hostname}<Check size={10} strokeWidth={1.8} />{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+			{#if data.activeTag || data.readingTime || data.domain}
+				<button class="clear-filters" onclick={() => navTo({ tag: null, time: null, domain: null, offset: null })}>Clear filters</button>
 			{/if}
 		</div>
 
@@ -598,6 +623,9 @@
 					{:else if data.readingTime}
 						<p class="empty-title">No articles match this filter</p>
 						<p class="empty-sub">Try a different reading time filter.</p>
+					{:else if data.domain}
+						<p class="empty-title">No articles from {data.domain}</p>
+						<p class="empty-sub">Try a different site filter.</p>
 					{:else}
 						<p class="empty-title">Nothing here yet</p>
 						<p class="empty-sub">Paste a URL to save an article — press Cmd+V anywhere on the page.</p>
