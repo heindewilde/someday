@@ -158,9 +158,22 @@ function isXUrl(url: string): boolean {
 	return /^(www\.)?(twitter\.com|x\.com)$/.test(hostname);
 }
 
+async function resolveRedirect(url: string): Promise<string> {
+	try {
+		const res = await fetch(url, {
+			method: 'HEAD',
+			redirect: 'follow',
+			signal: AbortSignal.timeout(5000),
+		});
+		return res.url;
+	} catch {
+		return url;
+	}
+}
+
 async function parseXPost(url: string): Promise<ParsedArticle> {
-	const fallback: ParsedArticle = {
-		title: url,
+	const xFallback = (title = url): ParsedArticle => ({
+		title,
 		description: null,
 		content: null,
 		author: null,
@@ -170,7 +183,7 @@ async function parseXPost(url: string): Promise<ParsedArticle> {
 		readingTimeMinutes: 1,
 		isPaywalled: false,
 		source: null,
-	};
+	});
 
 	let data: { html?: string; author_name?: string } = {};
 	try {
@@ -178,25 +191,75 @@ async function parseXPost(url: string): Promise<ParsedArticle> {
 			`https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`,
 			{ signal: AbortSignal.timeout(10000) }
 		);
-		if (!res.ok) return fallback;
+		if (!res.ok) return xFallback();
 		data = await res.json();
 	} catch {
-		return fallback;
+		return xFallback();
 	}
 
 	const dom = new JSDOM(data.html ?? '');
 	const tweetP = dom.window.document.querySelector('blockquote p');
 	const tweetText = tweetP?.textContent?.trim() ?? '';
-
-	// Rebuild safe content HTML from oEmbed (strip the Twitter widget script)
+	const authorName = data.author_name ?? null;
 	const blockquote = dom.window.document.querySelector('blockquote');
-	const contentHtml = blockquote ? blockquote.outerHTML : null;
 
+	// If the tweet body is essentially just a link (no meaningful text of its own),
+	// follow the link and parse the target as an article instead.
+	const textWithoutUrls = tweetText.replace(/https?:\/\/\S+/g, '').trim();
+	const firstLink = tweetP?.querySelector('a[href*="t.co"], a[href*="http"]');
+	const isLinkOnly = textWithoutUrls.length < 25 && firstLink !== null;
+
+	if (isLinkOnly) {
+		const linkedHref = firstLink!.getAttribute('href') ?? '';
+		const resolved = await resolveRedirect(linkedHref);
+
+		if (!isXUrl(resolved)) {
+			// External article — parse normally
+			try {
+				return await parseArticle(resolved);
+			} catch { /* fall through */ }
+		} else {
+			// X Article or thread — fetch the page and extract og metadata
+			// (X serves og tags server-side for articles even without JS)
+			try {
+				const metaRes = await fetch(resolved, {
+					headers: {
+						'User-Agent': 'Mozilla/5.0 (compatible; Twitterbot/1.0)',
+						'Accept': 'text/html',
+					},
+					signal: AbortSignal.timeout(10000),
+				});
+				if (metaRes.ok) {
+					const metaDom = new JSDOM(await metaRes.text(), { url: resolved });
+					const doc = metaDom.window.document;
+					const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim();
+					const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim();
+					const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null;
+					if (ogTitle) {
+						return {
+							title: ogTitle,
+							description: ogDesc ?? null,
+							content: null,
+							author: authorName,
+							siteName: 'X',
+							favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
+							coverImage: ogImage,
+							readingTimeMinutes: 1,
+							isPaywalled: false,
+							source: null,
+						};
+					}
+				}
+			} catch { /* fall through */ }
+		}
+	}
+
+	// Regular tweet — use tweet text as description, author as title
 	return {
-		title: tweetText.slice(0, 280) || data.author_name || 'X post',
+		title: authorName ? `Tweet by ${authorName}` : 'X post',
 		description: tweetText || null,
-		content: contentHtml,
-		author: data.author_name ?? null,
+		content: blockquote ? blockquote.outerHTML : null,
+		author: authorName,
 		siteName: 'X',
 		favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 		coverImage: null,
