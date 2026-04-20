@@ -4,7 +4,7 @@
 	import { page, navigating } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
-	import { Menu, BookOpen, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, Globe, ChevronDown } from 'lucide-svelte';
+	import { Menu, BookOpen, BookMarked, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, Globe, ChevronDown } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -406,7 +406,7 @@
 	}
 
 	const filterLabels: Record<string, string> = {
-		unread: 'Unread', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
+		unread: 'Unread', reading: 'Reading', read: 'Read', favorites: 'Favorites', archive: 'Archive', all: 'All'
 	};
 
 	const READING_TIME_LABELS: Record<string, string> = {
@@ -446,6 +446,15 @@
 				<BookOpen size={15} strokeWidth={1.4} />
 				Unread
 				{#if counts.unread > 0}<span class="badge">{counts.unread}</span>{/if}
+			</button>
+			<button
+				class="nav-item"
+				class:active={data.filter === 'reading' && !data.activeTag && !data.activeCollection}
+				onclick={() => navTo({ filter: 'reading', tag: null, collection: null })}
+			>
+				<BookMarked size={15} strokeWidth={1.4} />
+				Reading
+				{#if counts.reading > 0}<span class="badge">{counts.reading}</span>{/if}
 			</button>
 			<button
 				class="nav-item"
@@ -717,6 +726,25 @@
 							{#if article.source === 'product'}<span class="source-badge source-product">Product</span>{/if}
 							{#if article.source === 'pdf'}<span class="source-badge source-pdf">PDF</span>{/if}
 							{#if article.source === 'parsing'}<span class="source-badge source-parsing">Parsing…</span>{/if}
+							{#if !article.isRead && (article.readProgress ?? 0) > 0 && (article.readProgress ?? 0) < 100}
+								{@const p = article.readProgress ?? 0}
+								<span class="progress-ring" title="{p}% read" aria-label="{p}% read">
+									<svg width="13" height="13" viewBox="0 0 20 20">
+										<circle cx="10" cy="10" r="8" fill="none" stroke="var(--color-border-strong)" stroke-width="2.5" />
+										<circle
+											cx="10" cy="10" r="8"
+											fill="none"
+											stroke="var(--color-text)"
+											stroke-width="2.5"
+											stroke-linecap="round"
+											stroke-dasharray={2 * Math.PI * 8}
+											stroke-dashoffset={2 * Math.PI * 8 * (1 - p / 100)}
+											transform="rotate(-90 10 10)"
+										/>
+									</svg>
+									<span class="progress-pct">{p}%</span>
+								</span>
+							{/if}
 						</div>
 
 						<div class="card-body">
@@ -1447,6 +1475,20 @@
 		50% { opacity: 1; }
 	}
 	.sep { font-size: 0.75rem; color: var(--color-subtle); }
+
+	.progress-ring {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+		margin-left: 0.25rem;
+		color: var(--color-muted);
+	}
+	.progress-ring svg { display: block; }
+	.progress-pct {
+		font-size: 0.6875rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-muted);
+	}
 
 	.card-body {
 		display: flex;

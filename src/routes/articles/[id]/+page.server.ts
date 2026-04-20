@@ -4,7 +4,7 @@ import { articles, reminders, highlights } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
+export const load: PageServerLoad = async ({ locals, params }) => {
 	if (!locals.user) redirect(302, '/auth');
 
 	const [[article], [reminder], articleHighlights] = await Promise.all([
@@ -14,10 +14,6 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
 	]);
 
 	if (!article) error(404, 'Article not found');
-
-	// Browser-cache a recently-visited article briefly — Back/Forward and
-	// quick re-opens hit the cache instead of re-running the SSR load.
-	setHeaders({ 'cache-control': 'private, max-age=60' });
 
 	return { article, reminder: reminder ?? null, highlights: articleHighlights };
 };

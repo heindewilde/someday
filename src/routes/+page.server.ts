@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
-import { eq, and, desc, sql, lte, gt } from 'drizzle-orm';
+import { eq, and, desc, sql, lte, gt, lt } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 30;
@@ -26,6 +26,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		else if (filter === 'read') conditions.push(eq(articles.isRead, true), eq(articles.isArchived, false));
 		else if (filter === 'favorites') conditions.push(eq(articles.isFavorite, true), eq(articles.isArchived, false));
 		else if (filter === 'archive') conditions.push(eq(articles.isArchived, true));
+		else if (filter === 'reading') conditions.push(
+			eq(articles.isArchived, false),
+			eq(articles.isRead, false),
+			gt(articles.readProgress, 0),
+			lt(articles.readProgress, 100)
+		);
 		else conditions.push(eq(articles.isArchived, false));
 	}
 
@@ -86,6 +92,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		isFavorite: articles.isFavorite,
 		isPaywalled: articles.isPaywalled,
 		source: articles.source,
+		readProgress: articles.readProgress,
 		savedAt: articles.savedAt
 	};
 
@@ -166,17 +173,29 @@ async function fetchArticleCollections(articleIds: string[]) {
 }
 
 async function getCounts(userId: string) {
-	const rows = await db
-		.select({
-			isRead: articles.isRead,
-			isArchived: articles.isArchived,
-			count: sql<number>`count(*)`,
-			minutes: sql<number>`coalesce(sum(reading_time_minutes), 0)`,
-			words: sql<number>`coalesce(sum(word_count), 0)`
-		})
-		.from(articles)
-		.where(eq(articles.userId, userId))
-		.groupBy(articles.isRead, articles.isArchived);
+	const [rows, [inProgressRow]] = await Promise.all([
+		db
+			.select({
+				isRead: articles.isRead,
+				isArchived: articles.isArchived,
+				count: sql<number>`count(*)`,
+				minutes: sql<number>`coalesce(sum(reading_time_minutes), 0)`,
+				words: sql<number>`coalesce(sum(word_count), 0)`
+			})
+			.from(articles)
+			.where(eq(articles.userId, userId))
+			.groupBy(articles.isRead, articles.isArchived),
+		db
+			.select({ count: sql<number>`count(*)` })
+			.from(articles)
+			.where(and(
+				eq(articles.userId, userId),
+				eq(articles.isArchived, false),
+				eq(articles.isRead, false),
+				gt(articles.readProgress, 0),
+				lt(articles.readProgress, 100)
+			))
+	]);
 
 	const readRows = rows.filter(r => r.isRead);
 
@@ -184,6 +203,7 @@ async function getCounts(userId: string) {
 		unread: rows.filter(r => !r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
 		read: rows.filter(r => r.isRead && !r.isArchived).reduce((s, r) => s + r.count, 0),
 		archive: rows.filter(r => r.isArchived).reduce((s, r) => s + r.count, 0),
+		reading: inProgressRow?.count ?? 0,
 		readingStats: {
 			articles: readRows.reduce((s, r) => s + r.count, 0),
 			minutes: readRows.reduce((s, r) => s + r.minutes, 0),

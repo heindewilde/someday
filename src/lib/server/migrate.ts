@@ -159,6 +159,12 @@ export async function migrate() {
 		// Already exists
 	}
 
+	try {
+		await client.execute(`ALTER TABLE articles ADD COLUMN read_progress INTEGER DEFAULT 0`);
+	} catch {
+		// Already exists
+	}
+
 	await client.execute(`
 		CREATE TABLE IF NOT EXISTS reminders (
 			id TEXT PRIMARY KEY,

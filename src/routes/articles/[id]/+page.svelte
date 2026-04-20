@@ -1,11 +1,94 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { untrack } from 'svelte';
 	import { addToast } from '$lib/toasts.svelte';
 	import { ArrowLeft, Check, Circle, Star, ExternalLink, Printer, Bell, Languages, Sparkles, Trash2, ChevronDown, Highlighter, X } from 'lucide-svelte';
 
 	let { data } = $props();
 	// svelte-ignore state_referenced_locally
 	let article = $state({ ...data.article });
+
+	// --- Reading progress ---
+	// svelte-ignore state_referenced_locally
+	let readProgress = $state<number>(article.readProgress ?? 0);
+	let lastSavedProgress = article.readProgress ?? 0;
+	let progressSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function saveProgress(value: number, opts: { keepalive?: boolean } = {}) {
+		lastSavedProgress = value;
+		const body = JSON.stringify({ readProgress: value });
+		fetch(`/api/articles/${article.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body,
+			keepalive: opts.keepalive ?? false
+		}).catch(() => { /* best-effort */ });
+	}
+
+	function queueProgressSave(value: number) {
+		if (progressSaveTimer) clearTimeout(progressSaveTimer);
+		progressSaveTimer = setTimeout(() => {
+			progressSaveTimer = null;
+			if (Math.abs(value - lastSavedProgress) >= 1) saveProgress(value);
+		}, 1500);
+	}
+
+	$effect(() => {
+		let ticking = false;
+		// Suppress scroll->progress sync while we programmatically restore the
+		// scroll position on mount. Without this, the restore's own scroll event
+		// would fire before layout settled and clobber the saved value with 0.
+		let restoring = true;
+		function computeProgress() {
+			ticking = false;
+			if (restoring) return;
+			const doc = document.documentElement;
+			const max = doc.scrollHeight - window.innerHeight;
+			if (max <= 0) return;
+			const pct = Math.max(0, Math.min(100, Math.round((window.scrollY / max) * 100)));
+			const current = untrack(() => readProgress);
+			if (pct !== current) {
+				readProgress = pct;
+				queueProgressSave(pct);
+			}
+		}
+		function onScroll() {
+			if (ticking) return;
+			ticking = true;
+			requestAnimationFrame(computeProgress);
+		}
+		function onVisibility() {
+			const current = untrack(() => readProgress);
+			if (document.visibilityState === 'hidden' && current !== lastSavedProgress) {
+				if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; }
+				saveProgress(current, { keepalive: true });
+			}
+		}
+
+		// Restore saved scroll position. Defer past initial layout + image reflow
+		// so scrollHeight reflects the final document.
+		const initial = untrack(() => readProgress);
+		function restoreScroll() {
+			if (initial > 0 && initial < 100) {
+				const max = document.documentElement.scrollHeight - window.innerHeight;
+				if (max > 0) window.scrollTo({ top: (initial / 100) * max, behavior: 'instant' as ScrollBehavior });
+			}
+			restoring = false;
+		}
+		requestAnimationFrame(() => requestAnimationFrame(restoreScroll));
+
+		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', onScroll);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			window.removeEventListener('resize', onScroll);
+			document.removeEventListener('visibilitychange', onVisibility);
+			const current = untrack(() => readProgress);
+			if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null; }
+			if (current !== lastSavedProgress) saveProgress(current, { keepalive: true });
+		};
+	});
 
 	type Highlight = { id: string; selectedText: string; startOffset: number; endOffset: number; note: string | null; createdAt: Date | null };
 	let highlights = $state<Highlight[]>([]);
@@ -439,6 +522,7 @@
 </svelte:head>
 
 <div class="page">
+	<div class="progress-bar" style="width: {readProgress}%" aria-hidden="true"></div>
 	<header class="topbar">
 		<a href="/" class="back">
 			<ArrowLeft size={14} strokeWidth={1.5} />
@@ -669,6 +753,17 @@
 	.page {
 		min-height: 100vh;
 		background: var(--color-bg);
+	}
+
+	.progress-bar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		height: 2px;
+		background: var(--color-text);
+		z-index: 15;
+		transition: width 0.1s linear;
+		pointer-events: none;
 	}
 
 	.topbar {
@@ -1235,6 +1330,7 @@
 
 	@media print {
 		.topbar { display: none; }
+		.progress-bar { display: none; }
 
 		.reader {
 			max-width: 100%;
