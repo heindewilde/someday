@@ -43,13 +43,17 @@ Screenshot placeholders — drop files into docs/screenshots/ and uncomment:
 
 ## Why Someday?
 
-**Your reading list shouldn't live on someone else's server.** Someday runs as a single process backed by a single SQLite file. No external database, no Redis, no analytics, no telemetry. Drop it on a Raspberry Pi behind your home network and your library never leaves your house.
+**Private. Lightweight. Feature-packed. Beautifully designed.** That's the whole pitch. The rest of this section unpacks it.
 
-**It's also a serious reading tool.** Most self-hosted read-later apps are beautiful but thin. Someday ships the things you'd actually pay for: email-to-save, Readwise import, highlights with notes, smart collections, similar-article discovery, 15-language translation, and full-text search — all running locally against your own data.
+**Private by default.** Your reading list shouldn't live on someone else's server. Someday runs entirely on hardware you control, with no tracking, no telemetry, and no third-party accounts to sign in to. Your library never leaves your server.
 
-**And it gets out of your way.** Distraction-free reader with Geist typography, dark mode, a fully keyboard-driven library (`j`/`k`, `/`, `?`), and responsive layouts that work from 320px up. Designed for the "slow web."
+**Lightweight and fast.** One small app, one database file — that's the whole stack. It boots in seconds, idles on almost nothing, and stays snappy even with thousands of articles saved. Happy on a Raspberry Pi, a spare corner of your home server, or a $5 VPS.
 
-> **Self-hosted and private by default.** One binary, one SQLite file, one `docker compose up`. No external services, no accounts you don't control, no data you can't walk away with.
+**Feature-packed where it counts.** Most self-hosted read-later apps are beautiful but thin. Someday ships the things you'd actually pay for: email-to-save, Readwise import, highlights with notes, smart collections, similar-article discovery, 15-language translation, and full-text search — all running locally against your own data.
+
+**Beautifully designed.** A distraction-free reader, keyboard-first navigation, thoughtful typography, hand-tuned light and dark themes, and a mobile layout that actually works. Designed for the "slow web."
+
+> **Private, lightweight, and fast — by design.** One process, one database file, one `docker compose up`. No external services, no analytics, no heavy stack to maintain. Starts in seconds, happy on a Raspberry Pi.
 > [Jump to self-hosting →](#-self-hosting)
 
 ---
@@ -61,13 +65,13 @@ Screenshot placeholders — drop files into docs/screenshots/ and uncomment:
 <td width="33%" valign="top">
 
 ### 📥 Save from anywhere
-Paste a URL, `⌘V` from the clipboard, forward emails, or drop a Readwise CSV. Auto-detects PDFs, products, and tweets.
+Paste a URL, `⌘V` from the clipboard, forward an email, or drop a Readwise CSV. Auto-detects PDFs, products, and tweets.
 
 </td>
 <td width="33%" valign="top">
 
 ### 📖 Read beautifully
-Mozilla Readability extraction, Geist variable font, 680px measure, light + dark themes, one-click PDF export.
+A distraction-free reader with thoughtful typography, light and dark themes, and one-click PDF export.
 
 </td>
 <td width="33%" valign="top">
@@ -81,19 +85,19 @@ Tags for quick labels, collections for curated reading lists. Filter by status, 
 <td width="33%" valign="top">
 
 ### ✨ Highlight & recall
-Select-to-highlight with persistent offsets, inline notes, and a live side panel that follows you through the article.
+Select-to-highlight with inline notes and a side panel that follows you through the article.
 
 </td>
 <td width="33%" valign="top">
 
-### 🔍 Discover connections
-FTS5 full-text search and BM25-ranked "similar articles" surface older pieces you'd forgotten you saved.
+### ⚡ Fast & lightweight
+Boots in seconds, idles on almost nothing, runs on a Raspberry Pi. Fewer moving parts, fewer things to break.
 
 </td>
 <td width="33%" valign="top">
 
 ### 🔒 Own your data
-Single SQLite file. Take a `.db` copy and walk away whenever. AGPL-3.0 — you have the right to study and modify every line.
+One database file. Take a copy and walk away whenever. AGPL-3.0 — you have the right to study and modify every line.
 
 </td>
 </tr>
@@ -108,30 +112,40 @@ Single SQLite file. Take a `.db` copy and walk away whenever. AGPL-3.0 — you h
 <!-- TODO: docs/screenshots/save.png -->
 
 - **Paste-to-save** from the topbar, or hit `⌘V` / `Ctrl+V` anywhere to save the URL on your clipboard.
-- **Email-to-save** via Postmark inbound webhooks. Forward any newsletter or article to your Someday address and it lands in your library seconds later, with the sender as byline. [Setup guide below.](#-email-to-save-postmark)
+- **Email-to-save** — forward any newsletter or article to your Someday address and it lands in your library seconds later, with the sender as byline. [Setup guide below.](#-email-to-save-postmark)
 - **Readwise Reader CSV import** preserves tags, read/unread state, archive state, and saved date. Runs in the background with a progress bar.
-- **Automatic handling** for PDFs (saved as bookmarks), product pages (metadata-only), and X/Twitter URLs (oEmbed).
-- **Tracking-param stripping** — `utm_*`, `fbclid`, `gclid`, and friends are removed before saving.
-- **Duplicate detection** per user, so saving a URL twice is a no-op.
+- **Automatic handling** for PDFs (saved as bookmarks), product pages (metadata-only), and tweets.
+- **Tracking parameters removed** so shared links stay clean.
+- **No duplicates** — re-saving a URL is a no-op.
 
 ### 📖 A reader that gets out of the way
 
 <!-- TODO: docs/screenshots/reader.png -->
 
-- **Mozilla Readability** extraction with a 680px measure and 1.75 line-height.
-- **Geist variable font** (self-hosted, no Google Fonts callouts) for a clean, modern feel.
-- **Light + dark themes** — full CSS variable system, persisted to `localStorage`, one-click toggle.
-- **Paywall detection** (`og:article:content_tier`, JSON-LD `isAccessibleForFree`, DOM heuristics) — flagged with a badge before you click through.
-- **Source badges** for email (blue), product (purple), and PDF (gray) sources so you know what you saved.
-- **PDF export** via the browser's native print dialog with optimized print styles.
-- **Cover images**, favicons, authors, reading time, and word count — extracted once, stored forever.
+- **Readability-powered extraction** strips ads, nav, pop-ups, and sidebars so you just read the article.
+- **Typography tuned for long reading** — hand-picked font, comfortable measure, calm line-height.
+- **Light and dark themes**, one-click toggle, remembers your choice.
+- **Paywall detection** flags subscription-gated articles with a badge before you click through.
+- **Source badges** tell you at a glance whether an article came in via email, is a product page, or a PDF.
+- **Save any article as a PDF** via your browser's print dialog.
+- **Cover images, favicons, authors, and reading time** — captured once, there whenever you open the article.
+
+### ⚡ Fast & lightweight
+
+<!-- TODO: docs/screenshots/speed.png (optional - could be a screenshot of the app with a load time indicator or just skip) -->
+
+- **Boots in seconds.** No warm-up, no background sync jobs, no dashboards to load.
+- **Tiny footprint.** One small container, one database file. Happy on a Raspberry Pi or the smallest VPS your provider sells.
+- **Instant everything.** Search, filter, open an article — everything feels snappy, even with thousands of articles in your library.
+- **No moving parts.** No external database, no Redis, no message queue. Fewer things to configure, fewer things to break, fewer things to update.
+- **Grows with your archive.** Designed to stay fast as your library grows into the tens of thousands.
 
 ### ✨ Highlights & notes
 
 <!-- TODO: docs/screenshots/highlights.png -->
 
-- **Select-to-highlight** in the reader. Toggle highlight mode and drag across any passage.
-- **Character-offset persistence** survives re-renders, translations, and theme switches.
+- **Select-to-highlight** in the reader — toggle highlight mode and drag across any passage.
+- **Your highlights stick.** They survive translations, theme switches, and revisits.
 - **Per-highlight notes** — click any highlight to edit, annotate, or delete.
 - **Side panel** lists every highlight in an article, with jump-to-text on click.
 
@@ -143,40 +157,38 @@ Two organization primitives — use either, both, or neither.
 |---|---|---|
 | **Purpose** | Flexible labels | Curated reading lists |
 | **Creation** | Auto on first use | Explicit, you name them |
-| **Relationship** | Many-to-many, flat | Many-to-many, flat |
 | **Renaming** | Merges on conflict | Simple rename |
-| **Filters** | Respects read/unread | Shows everything in list |
+| **Filters** | Respects read/unread | Shows everything in the list |
 
-Plus built-in filters for **Unread**, **Read**, **Favorites**, **Archive**, reading time (`< 5 min` … `> 20 min`), and source domain.
+Plus built-in filters for **Unread**, **Read**, **Favorites**, and **Archive**, reading time (`< 5 min` … `> 20 min`), and source domain.
 
 ### 🔍 Full-text search
 
 <!-- TODO: docs/screenshots/search.png -->
 
-- **SQLite FTS5** virtual table over titles and article bodies.
-- **Prefix matching** on every term (`react` matches `react`, `reactive`, `reactor`).
-- **BM25 relevance ranking** built into SQLite — no external search engine needed.
-- **Instant results** with tight debouncing; scoped to your user and respects the current filter view.
-- **Triggers keep the index in sync** on every insert, update, and delete — no manual reindex step.
+- **Searches every article** — titles and full body text, including pieces you saved months ago.
+- **Partial matches work by default.** Type `react` and find `reactive` and `reactor` too.
+- **Ranked by relevance**, not just date, and results arrive instantly as you type.
+- **Scoped to your library**, respects whichever filter view you're in.
 
 ### ✨ Similar articles
 
-For each article, Someday pulls the top 5 related pieces from your own library using **BM25 ranking over title keywords** (≥4 chars, up to 8 terms). Great for rediscovery — save an article today, and when you read it next month you'll see the three related pieces you'd forgotten about.
+For every article you open, Someday surfaces up to five related pieces from your own library. Great for rediscovery — save an article today, and the next time you open it you'll see the related pieces you'd forgotten you'd saved.
 
 ### 🌐 Translate anything
 
 <!-- TODO: docs/screenshots/translate.png -->
 
-- **15 languages** via the public Lingva proxy: English, Spanish, French, German, Portuguese, Italian, Dutch, Polish, Russian, Japanese, Chinese, Korean, Arabic, Turkish, Swedish.
-- **Block-level translation** preserves structure — headings stay headings, blockquotes stay blockquotes, lists stay lists.
-- **Parallel chunking** (≤2000 chars per request) keeps long articles fast.
-- **XSS-safe** — all translated text is escaped before reinjection.
+- **Translate any saved article** into one of 15 languages with a click: English, Spanish, French, German, Portuguese, Italian, Dutch, Polish, Russian, Japanese, Chinese, Korean, Arabic, Turkish, Swedish.
+- **Formatting is preserved.** Headings, lists, and quotes keep their structure — you get a clean translated article, not a wall of text.
+- **Fast even on long articles.**
+- **No API keys required.** Translation is powered by the free, open Lingva project.
 
 ### 🔔 Reminders
 
-- Pick any future datetime (defaults to tomorrow 9am). One reminder per article, upsert semantics.
+- Pick any future datetime (defaults to tomorrow 9 am). One reminder per article.
 - The bell icon shows a dot when any reminder is due within 24 hours.
-- Upcoming reminders live in the sidebar, sorted by time, with click-to-cancel and a 5.6-second undo window.
+- Upcoming reminders live in the sidebar, sorted by time, with click-to-cancel and a generous undo window.
 
 > Reminders are stored today; delivery via email/push is on the [roadmap](#-roadmap).
 
@@ -202,7 +214,7 @@ Hit `?` anywhere to see this live. All shortcuts work without modifiers except w
 
 <!-- TODO: docs/screenshots/mobile.png docs/screenshots/dark-mode.png -->
 
-Responsive layouts from 320px up. Hamburger sidebar on mobile, horizontal-scrolling action bar, touch-friendly targets. Dark mode is a first-class citizen — both themes are hand-tuned, not auto-inverted.
+Works beautifully on phones, tablets, and desktops. A layout that adapts gracefully from your pocket to a 4K monitor, with a hamburger sidebar and touch-friendly controls on small screens. Dark mode is a first-class citizen — both themes are hand-tuned, not auto-inverted.
 
 ---
 
@@ -211,7 +223,7 @@ Responsive layouts from 320px up. Hamburger sidebar on mobile, horizontal-scroll
 |  | **☁️ Cloud (someday.sh)** | **🏠 Self-host** |
 |---|---|---|
 | **Setup** | Sign up — zero config | Docker Compose, 5 minutes |
-| **Storage** | Managed, encrypted | Your SQLite file |
+| **Storage** | Managed, encrypted | Your database file |
 | **Updates** | Automatic | `git pull && docker compose up -d --build` |
 | **Backups** | Automated, offsite | Your cron, your volume |
 | **Cost** | TBD (private beta) | Free (you pay for hosting) |
@@ -240,7 +252,7 @@ Someday is available as a managed service at **[someday.sh](https://someday.sh/)
 
 ## 🏠 Self-hosting
 
-Someday runs as a **single process** with a **single SQLite file**. No database server, no Redis, no queue, no external dependencies beyond Node.
+Someday runs as a **single process** with a **single database file**. No database server, no Redis, no queue, no external dependencies beyond Node. That's what makes it lightweight enough to self-host comfortably on modest hardware.
 
 ### Option A — Docker Compose (recommended)
 
@@ -308,13 +320,13 @@ git pull
 docker compose up -d --build
 ```
 
-No manual migration step. Schema changes are applied at startup via idempotent `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE … ADD COLUMN IF NOT EXISTS` statements in `src/lib/server/migrate.ts`. WAL mode means reads continue during the brief migration window.
+No manual migration step. Schema changes are applied automatically at startup. Your data is untouched during upgrades.
 
 ### Backups
 
 The entire app lives in `data/someday.db`. Back it up however you'd back up any SQLite file.
 
-**Live backup (no downtime, WAL-safe):**
+**Live backup (no downtime):**
 
 ```bash
 sqlite3 /path/to/data/someday.db ".backup /path/to/backups/someday-$(date +%F).db"
@@ -326,7 +338,7 @@ sqlite3 /path/to/data/someday.db ".backup /path/to/backups/someday-$(date +%F).d
 0 3 * * * sqlite3 /srv/someday/data/someday.db ".backup /backups/someday-$(date +\%F).db"
 ```
 
-**Offsite:** pipe to `restic`, `rclone`, or `rsync` to your destination of choice. The DB file is the whole app — no config, assets, or state lives outside of it.
+**Offsite:** pipe to `restic`, `rclone`, or `rsync` to your destination of choice. The database file is the whole app — no config, assets, or state lives outside of it.
 
 ### Reverse proxy
 
@@ -439,7 +451,7 @@ Existing URLs are skipped; no duplicates.
 
 ### Pocket, Instapaper, Raindrop
 
-Not natively supported yet — [open an issue](https://github.com/heindewilde/someday/issues) to vote on priority. In the meantime, most of these services export a CSV that can be massaged into the Readwise schema with a few lines of `awk` or a spreadsheet.
+Not natively supported yet — [open an issue](https://github.com/heindewilde/someday/issues) to vote on priority. In the meantime, most of these services export a CSV that can be massaged into the Readwise schema with a spreadsheet or a few lines of `awk`.
 
 ---
 
@@ -447,16 +459,14 @@ Not natively supported yet — [open an issue](https://github.com/heindewilde/so
 
 For the technically curious:
 
-- **Single-process SvelteKit SSR** with Svelte 5 runes throughout (`$state`, `$derived`, `$effect`, `$props`).
-- **SQLite via `@libsql/client`** — local file mode by default, remote libSQL/Turso supported via `DATABASE_URL`.
-- **Tuned pragmas**: WAL mode, 64 MB cache, 256 MB `mmap_size`, `NORMAL` sync — see `src/lib/server/db.ts`.
-- **FTS5 virtual table** for search and similarity, kept in sync via triggers on the `articles` table.
-- **Composite indexes** on the hot library query paths (user × archived × read × saved_at, favorites, reading time, domain).
-- **Fire-and-forget background parsing** on save — a skeleton row appears instantly with `source='parsing'`, the UI polls, and a janitor sweeps stale sentinels every 5 minutes.
-- **Startup migrations, backfills, and gated VACUUM** all run automatically on boot via `hooks.server.ts`.
-- **Session auth** with bcrypt-hashed passwords (cost 10), 30-day sessions, httpOnly cookies.
+- **Single-process SvelteKit app**, server-rendered. No separate API, no microservices.
+- **One SQLite file** for everything. Local by default; remote libSQL / Turso supported if you want it.
+- **Full-text search and similarity live inside SQLite** — no separate search engine to run or maintain.
+- **Article parsing happens in the background**, so saves are instant.
+- **Migrations and maintenance run automatically at startup.** No manual steps to remember on upgrade.
+- **Session auth** with bcrypt-hashed passwords and httpOnly cookies. Open registration; every user's library is isolated.
 
-See [`CLAUDE.md`](CLAUDE.md) for the deep reference used by contributors.
+See [`CLAUDE.md`](CLAUDE.md) for the deeper architectural reference used by contributors.
 
 ---
 
@@ -477,14 +487,13 @@ See [`CLAUDE.md`](CLAUDE.md) for the deep reference used by contributors.
 
 Not promises — a rough direction. Open an issue to vote or propose changes.
 
-- **Server-side reminder delivery** (email + push). Schema is in place; firing is the missing piece.
+- **Server-side reminder delivery** (email + push).
 - **Scroll position persistence** so the reader reopens where you left off.
 - **Reader typography controls** — font size, measure width, line height.
 - **More importers** — Pocket, Instapaper, Raindrop.
 - **Browser extension / bookmarklet** for one-click save from any page.
 - **Mobile apps** — PWA first, native shells to follow.
 - **Export** — one-click backup to Readwise-compatible CSV.
-- **Full-text similarity** (body-aware, not just title) using SQLite vector extensions.
 
 ---
 
@@ -524,25 +533,25 @@ There's no test suite yet; `svelte-check` is what CI would run. Keep changes foc
 ## ❓ FAQ
 
 **Why another read-later app?**
-Because the good ones are either expensive SaaS (Readwise Reader, Matter), increasingly stagnant (Pocket, Instapaper), or beautifully bare-bones (most self-hosted options). Someday aims for the middle: feature depth without the subscription or the data surrender.
+Because the good ones are either expensive SaaS (Readwise Reader, Matter), increasingly stagnant (Pocket, Instapaper), or beautifully bare-bones (most self-hosted options). Someday aims for the middle: feature depth without the subscription or the data surrender — in a package light enough to run on a Pi.
 
 **How does it compare to Pocket / Instapaper / Readwise Reader?**
-Roughly feature-par with Pocket and Instapaper on saving, reading, tagging, and archiving. Closer to Readwise Reader on highlights, smart organization, and discovery — but without the cloud-only lock-in or monthly bill.
+Roughly feature-par with Pocket and Instapaper on saving, reading, tagging, and archiving. Closer to Readwise Reader on highlights, smart organization, and discovery — but without the cloud-only lock-in or the monthly bill.
 
 **Can I run this on a Raspberry Pi?**
-Yes. A Pi 4 with 2 GB RAM handles a single-user library of thousands of articles comfortably. The Docker image runs on `arm64` and `amd64`.
+Yes. A Pi 4 with 2 GB RAM handles a single-user library of thousands of articles comfortably. The Docker image runs on both `arm64` and `amd64`.
 
 **Is my reading list truly private?**
-Yes. Someday makes outbound HTTP calls in three scenarios: (1) fetching the article URL you save, (2) fetching favicons/cover images referenced by that article, and (3) if you click *Translate*, proxying text to the public Lingva instance. That's it. No telemetry, no analytics, no third-party SDKs.
+Yes. Someday only reaches out to the internet for three things: (1) fetching the article URL you save, (2) fetching the favicon and cover image that article references, and (3) if you click *Translate*, proxying the text to the public Lingva instance. That's it. No telemetry, no analytics, no third-party SDKs.
 
 **Can I import my existing library?**
 Readwise Reader CSV is supported natively today. Other formats are on the roadmap; in the meantime the Readwise CSV schema is simple enough to convert into from most exports.
 
 **Does it work offline?**
-The reader works fine once an article is saved (the HTML is stored in SQLite). Saving new articles, translation, and similar-article search need network access.
+The reader works fine once an article is saved (the article is stored locally). Saving new articles, translation, and similar-article search need network access.
 
 **What happens to my data if I stop self-hosting?**
-You have the `data/someday.db` file. It's a plain SQLite database — you can open it in [DB Browser for SQLite](https://sqlitebrowser.org/), query it with any SQLite client, or import it into a different tool. No lock-in by design.
+You have the database file. It's a plain SQLite database — you can open it in [DB Browser for SQLite](https://sqlitebrowser.org/), query it with any SQLite client, or import it into a different tool. No lock-in by design.
 
 ---
 
