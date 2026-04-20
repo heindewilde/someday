@@ -3,6 +3,15 @@
 	import { onMount, onDestroy } from 'svelte';
 	let { data } = $props();
 
+	// Bookmarklet: a single-line javascript: URL that opens a new tab to /save,
+	// falling back to same-tab nav if the popup is blocked. Origin is baked in
+	// from the server at render time; single-quotes + JSON-escaped origin keep
+	// the string safe to embed in an href attribute.
+	const bookmarkletHref = $derived.by(() => {
+		const o = JSON.stringify(data.origin + '/save');
+		return `javascript:void(window.open(${o}+'?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title),'_blank')||(location.href=${o}+'?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)))`;
+	});
+
 	// svelte-ignore state_referenced_locally
 	let nameValue = $state(data.user.name ?? '');
 	// svelte-ignore state_referenced_locally
@@ -222,6 +231,35 @@
 				<p class="status" class:error={passwordStatus.type === 'error'}>{passwordStatus.message}</p>
 			{/if}
 			<button class="btn" onclick={savePassword}>Save password</button>
+		</section>
+
+		<section class="card">
+			<h2>Save from anywhere</h2>
+			<p class="desc">Two ways to save articles from outside Someday.</p>
+
+			<p class="bm-label">Bookmarklet</p>
+			<p class="bm-hint">Drag this to your bookmarks bar. Click it on any page to save that page to Someday.</p>
+			<div class="bm-row">
+				<a
+					class="bm-pill"
+					href={bookmarkletHref}
+					draggable="true"
+					onclick={(e) => e.preventDefault()}
+				>Save to Someday</a>
+			</div>
+			<p class="bm-origin">Saves to <code>{data.origin}</code>. If you open Someday from a different URL, reload this page there to regenerate the bookmarklet.</p>
+
+			<p class="bm-label">Install as an app</p>
+			<p class="bm-hint">Install Someday from your browser's menu. On mobile, Someday then appears in the Share sheet — send URLs to it from any app.</p>
+
+			<details class="bm-details">
+				<summary>Mobile install tips</summary>
+				<ul>
+					<li><strong>iOS Safari</strong> — tap Share → Add to Home Screen. Open Someday once from the home screen; it then shows up in the Share sheet from other apps.</li>
+					<li><strong>Android Chrome</strong> — menu → Install app (or Add to Home screen). Someday will appear as a share target from other apps.</li>
+					<li>Bookmarklets on iOS require a workaround: save any bookmark, then edit it and replace the URL with the one above. The Share-sheet flow is usually easier.</li>
+				</ul>
+			</details>
 		</section>
 
 		<section class="card">
@@ -557,4 +595,75 @@
 		color: var(--color-success);
 		margin: 0;
 	}
+
+	/* Bookmarklet / install */
+	.bm-label {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0.25rem 0 0.25rem;
+	}
+
+	.bm-hint {
+		font-size: 0.8125rem;
+		color: var(--color-muted);
+		margin: 0 0 0.625rem;
+	}
+
+	.bm-row {
+		margin: 0 0 0.5rem;
+	}
+
+	.bm-pill {
+		display: inline-flex;
+		align-items: center;
+		background: var(--color-text);
+		color: var(--color-bg);
+		border-radius: 999px;
+		padding: 0.4375rem 0.875rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		text-decoration: none;
+		cursor: grab;
+		user-select: none;
+		transition: opacity 0.15s;
+	}
+
+	.bm-pill:hover { opacity: 0.85; }
+	.bm-pill:active { cursor: grabbing; }
+
+	.bm-origin {
+		font-size: 0.75rem;
+		color: var(--color-subtle);
+		margin: 0 0 1rem;
+		line-height: 1.5;
+	}
+
+	.bm-origin code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.75rem;
+		color: var(--color-muted);
+	}
+
+	.bm-details {
+		font-size: 0.8125rem;
+		color: var(--color-muted);
+		margin-top: 0.25rem;
+	}
+
+	.bm-details summary {
+		cursor: pointer;
+		color: var(--color-text);
+		font-weight: 500;
+		padding: 0.125rem 0;
+	}
+
+	.bm-details ul {
+		margin: 0.5rem 0 0;
+		padding-left: 1.25rem;
+		line-height: 1.55;
+	}
+
+	.bm-details li + li { margin-top: 0.375rem; }
+	.bm-details strong { color: var(--color-text); }
 </style>

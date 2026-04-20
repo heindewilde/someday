@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { form } = $props();
+	let { data, form } = $props();
 	let mode = $state<'login' | 'register'>('login');
 </script>
 
@@ -25,6 +25,7 @@
 		{/if}
 
 		<form method="POST" action="?/{mode}" use:enhance>
+			<input type="hidden" name="next" value={data.next} />
 			{#if mode === 'register'}
 				<div class="field">
 					<label for="name">Name</label>
