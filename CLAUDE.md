@@ -22,7 +22,8 @@ There is no test suite. Type-check (`npm run check`) is the primary correctness 
 - **File**: `data/someday.db` (path configurable via `DB_PATH` env var)
 - **Schema**: `src/lib/server/schema.ts` — all tables defined with Drizzle ORM
 - **Migrations**: `src/lib/server/migrate.ts` — inline `CREATE TABLE IF NOT EXISTS` statements; run automatically on startup via `src/hooks.server.ts`. **No Drizzle migrations folder.** To add a column, add it to the schema and add an `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `migrate.ts`.
-- **Tables**: `users`, `sessions`, `articles`, `collections`, `article_collections`, `tags`, `article_tags`, `reminders`
+- **Tables**: `users`, `sessions`, `articles`, `collections`, `article_collections`, `tags`, `article_tags`, `reminders`, `highlights`
+- **FTS**: `articles_fts` virtual table (FTS5), synced via triggers on `articles` (INSERT/UPDATE/DELETE) — see `migrate.ts:82-119`
 - All PKs use CUID2 (`@paralleldrive/cuid2`)
 
 ### Auth
@@ -31,11 +32,17 @@ Session-based auth in `src/lib/server/auth.ts`. `locals.user` is set in `hooks.s
 
 ### Article Saving
 
-Articles are saved by POSTing a URL to `/api/articles`. The server fetches the page and extracts content with `@mozilla/readability` + `jsdom` (`src/lib/server/parser.ts`). Reading time, word count, and TF-IDF vectors are computed on save for the "similar articles" feature.
+Articles are saved by POSTing a URL to `/api/articles`. The endpoint creates a **skeleton row immediately** with `source = 'parsing'`, returns to the client, then enriches in the background via `enrichInBackground()` — content, metadata, reading time, word count, and domain are filled in later. The UI polls while `source === 'parsing'`. Parsing uses `@mozilla/readability` + `jsdom` (`src/lib/server/parser.ts`), which also handles tracking-param stripping, paywall detection, product detection, and special cases for X/Twitter (oEmbed) and PDFs (bookmark-only).
+
+A **janitor** runs every 5 minutes (and once at startup) to clear any `source='parsing'` sentinels older than 60s — prevents the UI from polling forever if the server crashed mid-parse. See `migrate.ts:241-254`.
 
 ### Similarity
 
-Similar articles use TF-IDF cosine similarity computed at save time and stored in a SQLite table. Exposed via `/api/articles/[id]/similar`.
+Similar articles use SQLite **FTS5 + BM25** ranking at query time — no separate similarity table. The `articles_fts` virtual table is populated via triggers on INSERT/UPDATE/DELETE. The query extracts title keywords from the target article (words ≥4 chars, max 8 terms), builds an FTS MATCH with prefix operators, and returns up to 5 results ordered by BM25. Exposed via `/api/articles/[id]/similar`.
+
+### Search
+
+Library text search uses the same `articles_fts` table. User input is stripped of FTS operators (`" ( ) * :`), each word ≥4 chars becomes a prefix term, max 8 terms joined with OR, scoped to `user_id` — see `src/routes/+page.server.ts:58-71`. Full-text indexes both title and body.
 
 ### Translation
 
@@ -53,15 +60,29 @@ Similar articles use TF-IDF cosine similarity computed at save time and stored i
 
 | Route | Purpose |
 |---|---|
-| `/` | Library (list + filter) |
-| `/articles/[id]` | Reader view |
-| `/settings` | Account settings |
+| `/` | Library (list + filter + FTS search) |
+| `/articles/[id]` | Reader view (highlights, translate, similar) |
+| `/settings` | Account settings + Readwise import |
 | `/auth` | Login / register |
-| `/api/articles` | Save / list articles |
-| `/api/articles/[id]` | CRUD for single article |
-| `/api/articles/[id]/similar` | TF-IDF similar articles |
-| `/api/reminders` | Create/list reminders |
-| `/api/reminders/[id]` | Delete reminder |
+| `/health` | Healthcheck used by Docker |
+| `/api/articles` | POST save, DELETE all |
+| `/api/articles/[id]` | PATCH / DELETE single article |
+| `/api/articles/[id]/tags`, `/api/articles/[id]/tags/[tagId]` | Add / remove tag on article |
+| `/api/articles/[id]/collections` | Put article in collections |
+| `/api/articles/[id]/highlights` | GET / POST highlights on article |
+| `/api/articles/[id]/similar` | FTS5 + BM25 similar articles |
+| `/api/tags/[id]` | PATCH rename, DELETE tag |
+| `/api/collections`, `/api/collections/[id]` | Collection CRUD |
+| `/api/highlights/[id]` | PATCH note, DELETE highlight |
+| `/api/reminders`, `/api/reminders/[id]` | Reminder CRUD |
 | `/api/translate` | Proxy to Lingva |
-| `/api/tags`, `/api/collections`, `/api/user` | CRUD |
-| `/api/inbound-email` | Postmark webhook for email-to-save |
+| `/api/user` | PATCH account (email, password) |
+| `/api/import/readwise` | Readwise CSV import (background job, in-memory progress) |
+| `/api/inbound-email` | Postmark webhook for email-to-save (auth via `?secret=` query) |
+
+### Performance & startup
+
+- **Pragmas** (`src/lib/server/db.ts`): `journal_mode=WAL`, `synchronous=NORMAL`, `cache_size=-65536` (64 MB), `mmap_size=268435456` (256 MB), `temp_store=MEMORY`, `busy_timeout=5000`.
+- **Composite indexes** (`migrate.ts:185-236`): hot library query path `(user_id, is_archived, is_read, saved_at DESC)`, partial favorites index, reading-time filter, domain filter, session expiry, reminders by user+time, highlights by article, tags by user+slug.
+- **Startup work** (run once via `hooks.server.ts` → `migrate()`): idempotent `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, FTS5 trigger install, one-time backfill of `domain` and `word_count`, gated `VACUUM` only if freelist is significant.
+- **Background janitor** every 5 min: clears stuck `source='parsing'` sentinels.
