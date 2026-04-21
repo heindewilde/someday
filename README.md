@@ -282,19 +282,16 @@ That's it. Someday is running on port **3000**. Data lives in a Docker named vol
 
 ### Option B — Docker run (no Compose)
 
-<!-- TODO: publish image to ghcr.io/heindewilde/someday before pointing users here. For now this builds locally. -->
-
-If you prefer not to use Compose, build and run the image yourself:
+Prebuilt multi-arch images (`amd64` + `arm64`) are published to GitHub Container Registry on every push to `main`:
 
 ```bash
-git clone https://github.com/heindewilde/someday.git
-cd someday
-docker build -t someday .
 docker run -d --name someday -p 3000:3000 \
   -v someday-data:/app/data \
   -e ORIGIN=http://localhost:3000 \
-  someday
+  ghcr.io/heindewilde/someday:latest
 ```
+
+Pin to a specific release with `:v1.2.3` instead of `:latest`. To build from source instead, clone the repo and run `docker build -t someday .`.
 
 ### Option C — Node.js (from source)
 
@@ -343,6 +340,8 @@ sqlite3 /path/to/data/someday.db ".backup /path/to/backups/someday-$(date +%F).d
 ### Reverse proxy
 
 Point your proxy at port 3000, forward `Host` and `X-Forwarded-*` headers, and set `ORIGIN` to your public URL.
+
+If you're behind a proxy and want the auth rate limiter to see real client IPs (rather than the proxy's IP), also set `ADDRESS_HEADER=x-forwarded-for` and `XFF_DEPTH=1` on the Someday container. Increase `XFF_DEPTH` if you have more than one proxy hop.
 
 <details>
 <summary><strong>Caddy</strong></summary>
@@ -404,6 +403,7 @@ All configuration is via environment variables (or a `.env` file).
 | `DB_PATH` | `./data/someday.db` | No | Path to the SQLite database file (local file mode). |
 | `DATABASE_URL` | — | No | Remote libSQL / Turso URL. Overrides `DB_PATH` when set. |
 | `DATABASE_AUTH_TOKEN` | — | No | Auth token for remote libSQL. Required when `DATABASE_URL` points to a remote instance. |
+| `DISABLE_REGISTRATION` | — | No | Set to `true` to block new signups. The first account can always be created so you can bootstrap your own instance with this already on. |
 | `INBOUND_EMAIL_SECRET` | — | No | Shared secret for the Postmark inbound-email webhook. Required only if you're enabling email-to-save. |
 
 ---

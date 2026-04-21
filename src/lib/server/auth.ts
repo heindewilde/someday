@@ -1,12 +1,24 @@
 import { db } from './db';
 import { users, sessions } from './schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { createId } from '@paralleldrive/cuid2';
+import { env } from '$env/dynamic/private';
 import type { Cookies } from '@sveltejs/kit';
 
 const SESSION_COOKIE = 'session';
 const SESSION_DAYS = 30;
+
+// Registration is gated by DISABLE_REGISTRATION, with a bootstrap escape
+// hatch: if the users table is empty, the first account can always be
+// created. Lets a self-hoster ship DISABLE_REGISTRATION=true from day one
+// and still sign themselves up.
+export async function registrationAllowed(): Promise<boolean> {
+	const disabled = /^(1|true|yes)$/i.test(env.DISABLE_REGISTRATION ?? '');
+	if (!disabled) return true;
+	const [row] = await db.select({ n: sql<number>`count(*)` }).from(users);
+	return (row?.n ?? 0) === 0;
+}
 
 export async function hashPassword(password: string) {
 	return bcrypt.hash(password, 10);

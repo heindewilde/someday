@@ -3,6 +3,9 @@
 
 	let { data, form } = $props();
 	let mode = $state<'login' | 'register'>('login');
+	$effect(() => {
+		if (!data.canRegister && mode === 'register') mode = 'login';
+	});
 </script>
 
 <svelte:head>
@@ -60,13 +63,17 @@
 			</button>
 		</form>
 
-		<p class="toggle">
-			{#if mode === 'login'}
-				No account? <button onclick={() => (mode = 'register')}>Create one</button>
-			{:else}
-				Already have an account? <button onclick={() => (mode = 'login')}>Sign in</button>
-			{/if}
-		</p>
+		{#if data.canRegister}
+			<p class="toggle">
+				{#if mode === 'login'}
+					No account? <button onclick={() => (mode = 'register')}>Create one</button>
+				{:else}
+					Already have an account? <button onclick={() => (mode = 'login')}>Sign in</button>
+				{/if}
+			</p>
+		{:else}
+			<p class="toggle">Registration is disabled on this instance.</p>
+		{/if}
 	</div>
 </div>
 
