@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { addToast } from '$lib/toasts.svelte';
 	import { ArrowLeft, Check, Circle, Star, ExternalLink, Printer, Bell, Languages, Sparkles, Trash2, ChevronDown, Highlighter, X } from 'lucide-svelte';
@@ -7,6 +7,21 @@
 	let { data } = $props();
 	// svelte-ignore state_referenced_locally
 	let article = $state({ ...data.article });
+
+	// Track whether the user arrived here via in-app navigation, so Back can
+	// use history.back() (preserving the previous page's scroll position via
+	// SvelteKit's scroll restoration) instead of always resetting to '/'.
+	let canGoBack = $state(false);
+	afterNavigate(({ from, type }) => {
+		if (from && type !== 'enter') canGoBack = true;
+	});
+
+	function handleBack(e: MouseEvent) {
+		if (canGoBack) {
+			e.preventDefault();
+			history.back();
+		}
+	}
 
 	// --- Reading progress ---
 	// svelte-ignore state_referenced_locally
@@ -524,7 +539,7 @@
 <div class="page">
 	<div class="progress-bar" style="width: {readProgress}%" aria-hidden="true"></div>
 	<header class="topbar">
-		<a href="/" class="back">
+		<a href="/" class="back" onclick={handleBack}>
 			<ArrowLeft size={14} strokeWidth={1.5} />
 			Back
 		</a>
