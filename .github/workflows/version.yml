@@ -1,0 +1,69 @@
+name: Auto-version
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    # Don't recurse on the version bump commit itself
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bump version
+        run: |
+          set -euo pipefail
+
+          # Commits since the last version bump (fall back to full log on first run)
+          LAST=$(git log --pretty=format:"%H %s" | awk '/chore: bump version/{print $1; exit}')
+          if [[ -n "$LAST" ]]; then
+            COMMITS=$(git log --pretty=format:"%s" "${LAST}..HEAD")
+          else
+            COMMITS=$(git log --pretty=format:"%s")
+          fi
+
+          HAS_FEAT=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:"              || true)
+          HAS_FIX=$(echo "$COMMITS"  | grep -E "^(fix|perf|refactor)(\(.+\))?:" || true)
+
+          if   [[ -n "$HAS_FEAT" ]]; then BUMP=minor
+          elif [[ -n "$HAS_FIX"  ]]; then BUMP=patch
+          else
+            echo "Only chore/docs/ci commits — no version bump needed."
+            exit 0
+          fi
+
+          BEFORE=$(node -p "require('./package.json').version")
+          npm version $BUMP --no-git-tag-version
+          AFTER=$(node -p "require('./package.json').version")
+
+          # Build a readable commit body from the relevant commits
+          FEATS=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:"       | sed -E "s/^feat(\(.+\))?:[[:space:]]*//" || true)
+          FIXES=$(echo "$COMMITS" | grep -E "^(fix|perf)(\(.+\))?:" | sed -E "s/^(fix|perf)(\(.+\))?:[[:space:]]*//" || true)
+
+          BODY=""
+          if [[ -n "$FEATS" ]]; then
+            BODY+=$'\n\nNew:'
+            while IFS= read -r l; do BODY+=$'\n'"  - $l"; done <<< "$FEATS"
+          fi
+          if [[ -n "$FIXES" ]]; then
+            BODY+=$'\n\nFixed:'
+            while IFS= read -r l; do BODY+=$'\n'"  - $l"; done <<< "$FIXES"
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${AFTER}${BODY}"
+          git push
+
+          echo "Bumped ${BUMP}: ${BEFORE} → ${AFTER}"
