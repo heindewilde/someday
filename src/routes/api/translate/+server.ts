@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-const LINGVA = 'https://lingva.ml';
+const LINGVA = env.LINGVA_URL || 'https://lingva.ml';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });

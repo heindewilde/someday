@@ -405,6 +405,7 @@ All configuration is via environment variables (or a `.env` file).
 | `DATABASE_AUTH_TOKEN` | — | No | Auth token for remote libSQL. Required when `DATABASE_URL` points to a remote instance. |
 | `DISABLE_REGISTRATION` | — | No | Set to `true` to block new signups. The first account can always be created so you can bootstrap your own instance with this already on. |
 | `INBOUND_EMAIL_SECRET` | — | No | Shared secret for the Postmark inbound-email webhook. Required only if you're enabling email-to-save. |
+| `LINGVA_URL` | `https://lingva.ml` | No | Lingva translation instance to proxy to. Override if you want to run your own for reliability or privacy. |
 
 ---
 
@@ -488,10 +489,8 @@ See [`CLAUDE.md`](CLAUDE.md) for the deeper architectural reference used by cont
 Not promises — a rough direction. Open an issue to vote or propose changes.
 
 - **Server-side reminder delivery** (email + push).
-- **Scroll position persistence** so the reader reopens where you left off.
 - **Reader typography controls** — font size, measure width, line height.
 - **More importers** — Pocket, Instapaper, Raindrop.
-- **Browser extension / bookmarklet** for one-click save from any page.
 - **Mobile apps** — PWA first, native shells to follow.
 - **Export** — one-click backup to Readwise-compatible CSV.
 

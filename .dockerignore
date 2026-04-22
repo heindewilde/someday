@@ -1,0 +1,13 @@
+node_modules
+.git
+data
+.env
+.env.*
+!.env.example
+.svelte-kit
+build
+.vscode
+.claude
+CLAUDE.md
+*.md
+docs
