@@ -27,8 +27,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Commits since the last version bump (fall back to full log on first run)
-          LAST=$(git log --pretty=format:"%H %s" | awk '/chore: bump version/{print $1; exit}')
+          # Commits since the last version bump (fall back to full log on first run).
+          # || true absorbs SIGPIPE (exit 141) from git log when awk exits early.
+          LAST=$(git log --pretty=format:"%H %s" | awk '/chore: bump version/{print $1; exit}') || true
           if [[ -n "$LAST" ]]; then
             COMMITS=$(git log --pretty=format:"%s" "${LAST}..HEAD")
           else
