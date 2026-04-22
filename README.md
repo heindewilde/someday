@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/heindewilde/someday/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/heindewilde/someday/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
   <a href="https://github.com/heindewilde/someday/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/heindewilde/someday?style=social"></a>
   <a href="https://github.com/heindewilde/someday/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/heindewilde/someday"></a>
@@ -515,7 +516,7 @@ Before opening a PR:
 npm run check        # type-check with svelte-check — the primary correctness signal
 ```
 
-There's no test suite yet; `svelte-check` is what CI would run. Keep changes focused, match the existing style, and update [`CLAUDE.md`](CLAUDE.md) if you change architecture.
+There's no test suite yet; `svelte-check` is what CI would run. Keep changes focused, match the existing style, and update the Architecture section of this README if you change how the system is structured.
 
 **Conventions:**
 - Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) — no legacy Options API.
