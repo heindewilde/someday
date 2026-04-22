@@ -11,6 +11,8 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     permissions:
       contents: write
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +23,7 @@ jobs:
           node-version: 22
 
       - name: Bump version
+        id: bump
         run: |
           set -euo pipefail
 
@@ -32,13 +35,14 @@ jobs:
             COMMITS=$(git log --pretty=format:"%s")
           fi
 
-          HAS_FEAT=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:"              || true)
+          HAS_FEAT=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:"               || true)
           HAS_FIX=$(echo "$COMMITS"  | grep -E "^(fix|perf|refactor)(\(.+\))?:" || true)
 
           if   [[ -n "$HAS_FEAT" ]]; then BUMP=minor
           elif [[ -n "$HAS_FIX"  ]]; then BUMP=patch
           else
             echo "Only chore/docs/ci commits — no version bump needed."
+            echo "bump=none" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -46,7 +50,6 @@ jobs:
           npm version $BUMP --no-git-tag-version
           AFTER=$(node -p "require('./package.json').version")
 
-          # Build a readable commit body from the relevant commits
           FEATS=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:"       | sed -E "s/^feat(\(.+\))?:[[:space:]]*//" || true)
           FIXES=$(echo "$COMMITS" | grep -E "^(fix|perf)(\(.+\))?:" | sed -E "s/^(fix|perf)(\(.+\))?:[[:space:]]*//" || true)
 
@@ -66,4 +69,25 @@ jobs:
           git commit -m "chore: bump version to ${AFTER}${BODY}"
           git push
 
+          echo "bump=${BUMP}"     >> "$GITHUB_OUTPUT"
+          echo "version=${AFTER}" >> "$GITHUB_OUTPUT"
           echo "Bumped ${BUMP}: ${BEFORE} → ${AFTER}"
+
+      # Minor bumps get a Git tag, which triggers docker.yml to build the versioned
+      # image and publish the GitHub Release. Requires RELEASE_TOKEN (a PAT with
+      # contents: write) because GITHUB_TOKEN pushes don't trigger other workflows.
+      # Patch bumps accumulate silently until the next feature release.
+      - name: Tag release
+        if: steps.bump.outputs.bump == 'minor' && env.RELEASE_TOKEN != ''
+        run: |
+          TAG="v${{ steps.bump.outputs.version }}"
+          git tag "$TAG"
+          git remote set-url origin "https://x-access-token:${RELEASE_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$TAG"
+          echo "Pushed ${TAG} — docker.yml will build the versioned image and publish the GitHub Release."
+
+      - name: Warn if RELEASE_TOKEN not configured
+        if: steps.bump.outputs.bump == 'minor' && env.RELEASE_TOKEN == ''
+        run: |
+          echo "::warning::Minor bump detected but RELEASE_TOKEN secret is not set."
+          echo "::warning::Add a PAT (contents: write) as RELEASE_TOKEN to enable automatic tagging and releases."
