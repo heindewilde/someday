@@ -1,4 +1,7 @@
 import { client } from './db';
+import { env } from '$env/dynamic/private';
+
+const isFileDb = (env.DATABASE_URL || 'file:').startsWith('file:');
 
 // Guard against HMR double-starting intervals in dev.
 let parsingJanitorStarted = false;
@@ -260,11 +263,11 @@ export async function migrate() {
 		}, 5 * 60 * 1000);
 	}
 
-	// Background tasks: backfill missing derived columns, then reclaim dead
-	// pages. Serialized so VACUUM doesn't fight the backfill's writes.
+	// Background tasks: backfill missing derived columns, then (local only)
+	// reclaim dead pages. VACUUM is a no-op on Turso.
 	void (async () => {
 		await backfillDerivedColumns();
-		await vacuumIfNeeded();
+		if (isFileDb) await vacuumIfNeeded();
 	})();
 }
 
