@@ -5,6 +5,11 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '.gitignore'
+      - 'LICENSE'
 jobs:
   deploy:
     name: Deploy app
