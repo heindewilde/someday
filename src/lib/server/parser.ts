@@ -218,7 +218,54 @@ async function parseXUrl(url: string): Promise<ParsedArticle> {
 	};
 }
 
+// Reject URLs that resolve to private/loopback/link-local addresses to prevent
+// SSRF attacks that could reach internal services or cloud metadata endpoints.
+function assertPublicUrl(rawUrl: string): void {
+	let hostname: string;
+	try {
+		hostname = new URL(rawUrl).hostname.toLowerCase();
+	} catch {
+		throw new Error('Invalid URL');
+	}
+
+	// Strip IPv6 brackets
+	const host = hostname.replace(/^\[|\]$/g, '');
+
+	// Reject obvious localhost forms
+	if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '::') {
+		throw new Error('URL resolves to a private address');
+	}
+
+	// Parse IPv4 dotted-decimal
+	const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+	if (ipv4) {
+		const [, a, b, c] = ipv4.map(Number);
+		if (
+			a === 127 ||                          // 127.0.0.0/8 loopback
+			a === 10 ||                           // 10.0.0.0/8 private
+			a === 0 ||                            // 0.0.0.0/8
+			(a === 172 && b >= 16 && b <= 31) ||  // 172.16.0.0/12 private
+			(a === 192 && b === 168) ||            // 192.168.0.0/16 private
+			(a === 169 && b === 254) ||            // 169.254.0.0/16 link-local (IMDS)
+			(a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 shared address space
+			a === 198 && b === 51 && c === 100 || // TEST-NET-2
+			a === 203 && b === 0 && c === 113     // TEST-NET-3
+		) {
+			throw new Error('URL resolves to a private address');
+		}
+	}
+
+	// Reject IPv6 private ranges (compressed forms)
+	if (host.startsWith('fc') || host.startsWith('fd') ||  // fc00::/7 ULA
+		host.startsWith('fe80') ||                          // link-local
+		host === '::1') {
+		throw new Error('URL resolves to a private address');
+	}
+}
+
 export async function parseArticle(url: string): Promise<ParsedArticle> {
+	assertPublicUrl(url);
+
 	if (isXUrl(url)) return parseXUrl(url);
 
 	let response: Response;
