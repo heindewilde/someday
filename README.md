@@ -5,10 +5,10 @@
 </p>
 -->
 
-<h1 align="center">Someday</h1>
+<h1 align="center">Someday 🌅</h1>
 
 <p align="center">
-  <em>The read-it-later solution you've been looking for.<br>Private. Lightweight. Feature-packed. Delightfully-designed.</em>
+  <em>The read-it-later solution you've been looking for.<br>Private&nbsp;·&nbsp;Lightweight&nbsp;·&nbsp;Feature-packed&nbsp;·&nbsp;Delightfully-designed.</em>
 </p>
 
 <p align="center">
