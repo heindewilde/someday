@@ -62,9 +62,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	if (q) {
-		// Strip FTS5 operator chars, then build a prefix-match query over the
-		// articles_fts virtual table (already kept in sync by triggers).
-		const clean = q.replace(/["()*:]/g, ' ').trim();
+		// Strip all FTS5 operator chars/keywords before building the query.
+		const clean = q
+			.replace(/["()*:\-\^]/g, ' ')
+			.replace(/\b(NOT|AND|OR)\b/gi, ' ')
+			.trim();
 		if (clean) {
 			const ftsQuery = clean.split(/\s+/).filter(Boolean).map(w => `"${w}"*`).join(' ');
 			conditions.push(
