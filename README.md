@@ -196,13 +196,17 @@ For every article you open, Someday surfaces up to five related pieces from your
 
 Someday is built for readers who prefer their hands on the keyboard. Navigate the library, open articles, toggle read/favorite/archive, save from the clipboard, and dismiss menus — all without reaching for the mouse. Hit `?` anywhere in the app to see every available shortcut.
 
-### 📱 Mobile, PWA & dark mode
+### 📱 Mobile & PWA
 
-<!-- TODO: docs/screenshots/mobile.png docs/screenshots/dark-mode.png -->
+<!-- TODO: docs/screenshots/mobile.png -->
 
-Works beautifully on phones, tablets, and desktops. A layout that adapts gracefully from your pocket to a 4K monitor, with a hamburger sidebar and touch-friendly controls on small screens. Dark mode is a first-class citizen — both themes are hand-tuned, not auto-inverted.
+Works beautifully on phones, tablets, and desktops. The layout adapts gracefully from your pocket to a 4K monitor, with a hamburger sidebar and touch-friendly controls on small screens. Someday ships as a **Progressive Web App** — add it to your home screen from any browser for a full-screen, app-like experience on iOS and Android, no app store required.
 
-Someday ships as a **Progressive Web App** — add it to your home screen from any browser for a full-screen, app-like experience on iOS and Android with no app store required.
+### 🌙 Dark mode
+
+<!-- TODO: docs/screenshots/dark-mode.png -->
+
+Dark mode is a first-class citizen — both themes are hand-tuned, not auto-inverted. Toggle with one click; your preference is remembered.
 
 ---
 
