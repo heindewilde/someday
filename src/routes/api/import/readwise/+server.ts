@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb, type Region } from '$lib/server/db';
 import { articles, tags, articleTags } from '$lib/server/schema';
 import { cleanUrl, parseArticle } from '$lib/server/parser';
 import { slugify } from '$lib/server/utils';
@@ -69,8 +69,10 @@ async function runImport(
 	job: ImportJob,
 	dataRows: string[][],
 	idx: Record<string, number>,
-	userId: string
+	userId: string,
+	region: Region
 ) {
+	const { db } = getDb(region);
 	const tagCache = new Map<string, string>();
 	const tagInFlight = new Map<string, Promise<string>>();
 
@@ -261,7 +263,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	importJobs.set(locals.user.id, job);
 
 	// Fire and forget — runs after response is sent
-	runImport(job, dataRows, idx, locals.user.id).catch(e => {
+	runImport(job, dataRows, idx, locals.user.id, locals.user.region).catch(e => {
 		console.error('Readwise import failed:', e);
 		job.error = e.message;
 		job.done = true;

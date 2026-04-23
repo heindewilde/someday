@@ -1,13 +1,16 @@
 import { redirect } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb, type DbEntry } from '$lib/server/db';
 import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
 import { eq, and, desc, sql, lte, gt, lt } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
+
+type Db = DbEntry['db'];
 
 const PAGE_SIZE = 30;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) redirect(302, '/auth');
+	const { db } = getDb(locals.user.region);
 
 	const userId = locals.user.id;
 	const filter = url.searchParams.get('filter') ?? 'unread';
@@ -132,12 +135,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	const [colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
-		fetchArticleCollections(articleIds),
-		getTags(userId),
-		getCollections(userId),
-		getCounts(userId),
-		getReminders(userId),
-		getDomains(userId)
+		fetchArticleCollections(db, articleIds),
+		getTags(db, userId),
+		getCollections(db, userId),
+		getCounts(db, userId),
+		getReminders(db, userId),
+		getDomains(db, userId)
 	]);
 
 	return {
@@ -159,7 +162,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 };
 
-async function fetchArticleCollections(articleIds: string[]) {
+async function fetchArticleCollections(db: Db, articleIds: string[]) {
 	const map: Record<string, { id: string; name: string }[]> = {};
 	if (articleIds.length === 0) return map;
 	const rows = await db
@@ -174,7 +177,7 @@ async function fetchArticleCollections(articleIds: string[]) {
 	return map;
 }
 
-async function getCounts(userId: string) {
+async function getCounts(db: Db, userId: string) {
 	const [rows, [inProgressRow]] = await Promise.all([
 		db
 			.select({
@@ -214,7 +217,7 @@ async function getCounts(userId: string) {
 	};
 }
 
-async function getReminders(userId: string) {
+async function getReminders(db: Db, userId: string) {
 	return db
 		.select({
 			id: reminders.id,
@@ -228,7 +231,7 @@ async function getReminders(userId: string) {
 		.orderBy(reminders.remindAt);
 }
 
-async function getTags(userId: string) {
+async function getTags(db: Db, userId: string) {
 	const [tagList, countRows] = await Promise.all([
 		db.select().from(tags).where(eq(tags.userId, userId)).orderBy(tags.name),
 		db.select({ tagId: articleTags.tagId, count: sql<number>`count(*)` })
@@ -241,7 +244,7 @@ async function getTags(userId: string) {
 	return tagList.map(t => ({ ...t, articleCount: countMap[t.id] ?? 0 }));
 }
 
-async function getDomains(userId: string) {
+async function getDomains(db: Db, userId: string) {
 	const rows = await db
 		.select({
 			hostname: articles.domain,
@@ -255,7 +258,7 @@ async function getDomains(userId: string) {
 	return rows.map(r => ({ hostname: r.hostname!, count: r.count }));
 }
 
-async function getCollections(userId: string) {
+async function getCollections(db: Db, userId: string) {
 	const [cols, countRows] = await Promise.all([
 		db.select().from(collections).where(eq(collections.userId, userId)).orderBy(collections.name),
 		db.select({ collectionId: articleCollections.collectionId, count: sql<number>`count(*)` })

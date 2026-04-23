@@ -1,12 +1,9 @@
-import { client } from './db';
-import { env } from '$env/dynamic/private';
+import { initDb, getDb, getPrimaryDb, REGIONS } from './db';
+import type { Client } from '@libsql/client';
 
-const isFileDb = (env.DATABASE_URL || 'file:').startsWith('file:');
-
-// Guard against HMR double-starting intervals in dev.
 let parsingJanitorStarted = false;
 
-export async function migrate() {
+async function migrateClient(client: Client, isFile: boolean) {
 	await client.execute(`
 		CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
@@ -39,7 +36,7 @@ export async function migrate() {
 		CREATE TABLE IF NOT EXISTS articles (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			url TEXT NOT NULL,
+			url TEXT,
 			title TEXT NOT NULL,
 			description TEXT,
 			content TEXT,
@@ -191,8 +188,7 @@ export async function migrate() {
 		)
 	`);
 
-	// Indexes — without these the library query is a full scan on `articles`,
-	// and every tag/collection join is a full scan on the link table.
+	// Indexes
 	await client.execute(
 		`CREATE INDEX IF NOT EXISTS idx_articles_user_archived_read_saved
 		 ON articles(user_id, is_archived, is_read, saved_at DESC)`
@@ -206,9 +202,6 @@ export async function migrate() {
 		`CREATE INDEX IF NOT EXISTS idx_articles_user_rtime
 		 ON articles(user_id, reading_time_minutes)`
 	);
-	// Unique (user_id, url). Falls back to a non-unique index if a prior
-	// import landed duplicates — the app-level dedupe in POST /api/articles
-	// and the readwise importer both check before inserting.
 	try {
 		await client.execute(
 			`CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_user_url
@@ -244,40 +237,59 @@ export async function migrate() {
 		`CREATE INDEX IF NOT EXISTS idx_articles_user_domain ON articles(user_id, domain)`
 	);
 
-	// Clear stale parsing sentinels from prior crashed workers — on boot any
-	// row still marked 'parsing' can't complete (the worker is gone), so reset
-	// so the UI doesn't poll forever.
+	// Clear stale parsing sentinels from prior crashed workers
 	await client.execute(`UPDATE articles SET source = NULL WHERE source = 'parsing'`);
 
-	// Periodic sweep: if a user closes their tab mid-parse, the background
-	// enrichment still completes — but if the server was killed between,
-	// nothing will ever flip the sentinel. Run every 5 min; clear rows older
-	// than 60s that are still marked 'parsing'.
-	if (!parsingJanitorStarted) {
-		parsingJanitorStarted = true;
-		setInterval(() => {
-			client.execute(
-				`UPDATE articles SET source = NULL
-				 WHERE source = 'parsing' AND saved_at < strftime('%s', 'now') - 60`
-			).catch(e => console.error('[janitor] parsing sweep failed:', e));
-		}, 5 * 60 * 1000);
-	}
-
-	// Background tasks: backfill missing derived columns, then (local only)
-	// reclaim dead pages. VACUUM is a no-op on Turso.
-	void (async () => {
-		await backfillDerivedColumns();
-		if (isFileDb) await vacuumIfNeeded();
-	})();
+	// Backfill missing derived columns in the background
+	void backfillDerivedColumns(client);
+	if (isFile) void vacuumIfNeeded(client);
 }
 
-async function backfillDerivedColumns() {
+export async function migrate() {
+	// Initialize all regional DBs (initDb deduplicates by URL, so single-DB setups
+	// create only one connection regardless of how many regions point to it).
+	await Promise.all(REGIONS.map(r => initDb(r)));
+
+	// Run schema migrations on each unique DB connection
+	const seen = new Set<Client>();
+	for (const region of REGIONS) {
+		const { client, isFile } = getDb(region);
+		if (seen.has(client)) continue;
+		seen.add(client);
+		await migrateClient(client, isFile);
+	}
+
+	// Email routing table lives only in the primary (EU) DB
+	const { client: primary } = getPrimaryDb();
+	await primary.execute(`
+		CREATE TABLE IF NOT EXISTS email_routing (
+			email TEXT PRIMARY KEY,
+			region TEXT NOT NULL
+		)
+	`);
+	// Backfill existing users so logins still work after upgrading to multi-region
+	await primary.execute(`
+		INSERT OR IGNORE INTO email_routing (email, region)
+		SELECT email, 'eu' FROM users
+	`);
+
+	// Start the parsing janitor for each unique DB
+	if (!parsingJanitorStarted) {
+		parsingJanitorStarted = true;
+		const uniqueClients = [...seen];
+		setInterval(() => {
+			for (const c of uniqueClients) {
+				c.execute(
+					`UPDATE articles SET source = NULL
+					 WHERE source = 'parsing' AND saved_at < strftime('%s', 'now') - 60`
+				).catch(e => console.error('[janitor] parsing sweep failed:', e));
+			}
+		}, 5 * 60 * 1000);
+	}
+}
+
+async function backfillDerivedColumns(client: Client) {
 	try {
-		// Only backfill rows that can actually be improved:
-		//   - missing domain (will be derived from url)
-		//   - word_count is 0 but content has actual bytes to count
-		// Rows with content IS NULL or '' legitimately have word_count=0 and
-		// don't need re-backfilling every boot.
 		const { rows } = await client.execute(
 			`SELECT id, url, content FROM articles
 			 WHERE (domain IS NULL AND url IS NOT NULL)
@@ -314,15 +326,13 @@ async function backfillDerivedColumns() {
 	}
 }
 
-async function vacuumIfNeeded() {
+async function vacuumIfNeeded(client: Client) {
 	try {
 		const free = await client.execute(`PRAGMA freelist_count`);
 		const pages = await client.execute(`PRAGMA page_count`);
 		const freelist = Number(free.rows[0]?.freelist_count ?? 0);
 		const pageCount = Number(pages.rows[0]?.page_count ?? 1);
 
-		// Only vacuum when there's meaningful reclaim to do. VACUUM takes a
-		// write lock for the duration, so we don't want to run it every boot.
 		const shouldVacuum = freelist > 1000 || freelist / pageCount > 0.1;
 		if (!shouldVacuum) return;
 

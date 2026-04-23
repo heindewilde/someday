@@ -1,11 +1,12 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { articleTags, articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const [article] = await db
 		.select({ id: articles.id })

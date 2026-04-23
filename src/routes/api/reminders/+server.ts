@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { reminders, articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const rows = await db
 		.select({
@@ -25,6 +26,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const { articleId, remindAt } = await request.json();
 	if (!articleId || !remindAt) error(400, 'Missing fields');

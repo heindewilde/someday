@@ -1,11 +1,12 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { articles, collections, articleCollections } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const body = await request.json();
 	const collectionIds: string[] = Array.isArray(body.collectionIds) ? body.collectionIds : [];

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
+import { lookupRegionForEmail } from '$lib/server/auth';
 import { articles, users } from '$lib/server/schema';
 import { sanitizeEmailHtml, estimateReadingTime } from '$lib/server/parser';
 import { env } from '$env/dynamic/private';
@@ -53,6 +54,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	const fromName = payload.FromFull?.Name || null;
 	if (!fromEmail) return json({ ok: false, reason: 'no_from' });
 
+	const region = await lookupRegionForEmail(fromEmail);
+	if (!region) return json({ ok: false, reason: 'unknown_sender' });
+
+	const { db } = getDb(region);
 	const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, fromEmail));
 	if (!user) return json({ ok: false, reason: 'unknown_sender' });
 

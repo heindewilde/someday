@@ -82,3 +82,10 @@ export const highlights = sqliteTable('highlights', {
 	note: text('note'),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
+
+// Stores email → region mapping. Only created and queried in the primary (EU) DB.
+// Used to route login requests to the correct regional database.
+export const emailRouting = sqliteTable('email_routing', {
+	email: text('email').primaryKey(),
+	region: text('region').notNull(),
+});

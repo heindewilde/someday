@@ -1,4 +1,4 @@
-import { db } from './db';
+import { getDb, type Region } from './db';
 import { articles } from './schema';
 import { parseArticle, cleanUrl } from './parser';
 import { eq, and } from 'drizzle-orm';
@@ -13,7 +13,8 @@ export type SaveResult =
 	| { kind: 'duplicate'; articleId: string }
 	| { kind: 'invalid'; message: string };
 
-async function enrichInBackground(articleId: string, normalized: string) {
+async function enrichInBackground(articleId: string, normalized: string, region: Region) {
+	const { db } = getDb(region);
 	try {
 		const parsed = await parseArticle(normalized);
 		await db
@@ -38,7 +39,8 @@ async function enrichInBackground(articleId: string, normalized: string) {
 	}
 }
 
-export async function saveArticle(userId: string, rawUrl: string): Promise<SaveResult> {
+export async function saveArticle(userId: string, rawUrl: string, region: Region): Promise<SaveResult> {
+	const { db } = getDb(region);
 	const trimmed = String(rawUrl ?? '').trim();
 	if (!trimmed) return { kind: 'invalid', message: 'URL is required' };
 
@@ -84,7 +86,7 @@ export async function saveArticle(userId: string, rawUrl: string): Promise<SaveR
 		})
 		.returning();
 
-	void enrichInBackground(article.id, normalized);
+	void enrichInBackground(article.id, normalized, region);
 
 	return { kind: 'ok', articleId: article.id };
 }

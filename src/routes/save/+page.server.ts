@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ url, locals, request }) => {
 		return { state: 'empty' as const, title };
 	}
 
-	const result = await saveArticle(locals.user.id, target);
+	const result = await saveArticle(locals.user.id, target, locals.user.region);
 
 	if (result.kind === 'ok' || result.kind === 'duplicate') {
 		redirect(303, '/articles/' + result.articleId);

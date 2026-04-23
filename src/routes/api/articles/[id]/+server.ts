@@ -1,11 +1,12 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const body = await request.json();
 	const allowed = ['isRead', 'isArchived', 'isFavorite', 'readAt', 'readProgress'] as const;
@@ -36,6 +37,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	await db
 		.delete(articles)

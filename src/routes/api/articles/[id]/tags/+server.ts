@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { tags, articleTags, articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import { slugify } from '$lib/server/utils';
@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db } = getDb(locals.user.region);
 
 	const [article] = await db
 		.select({ id: articles.id })

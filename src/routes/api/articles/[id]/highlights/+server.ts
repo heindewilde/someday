@@ -1,11 +1,12 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { highlights, articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	if (!locals.user) error(401);
+	const { db } = getDb(locals.user.region);
 	const [article] = await db.select({ id: articles.id })
 		.from(articles)
 		.where(and(eq(articles.id, params.id), eq(articles.userId, locals.user.id)));
@@ -17,6 +18,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
 	if (!locals.user) error(401);
+	const { db } = getDb(locals.user.region);
 	const [article] = await db.select({ id: articles.id })
 		.from(articles)
 		.where(and(eq(articles.id, params.id), eq(articles.userId, locals.user.id)));

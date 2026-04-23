@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { db, client } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { articles } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -19,6 +19,7 @@ function buildMatchQuery(title: string): string {
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+	const { db, client } = getDb(locals.user.region);
 
 	const [target] = await db
 		.select({ id: articles.id, title: articles.title })

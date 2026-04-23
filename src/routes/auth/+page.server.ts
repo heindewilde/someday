@@ -1,16 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb, isValidRegion, isMultiRegion, REGIONS, REGION_LABELS } from '$lib/server/db';
 import { users } from '$lib/server/schema';
-import { hashPassword, verifyPassword, createSession, registrationAllowed } from '$lib/server/auth';
+import {
+	hashPassword,
+	verifyPassword,
+	createSession,
+	registrationAllowed,
+	lookupRegionForEmail,
+	registerEmailRoute
+} from '$lib/server/auth';
 import { rateLimit } from '$lib/server/rate-limit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 
 const MIN = 60 * 1000;
 
-// Narrow whitelist: we only need to bounce back to /save. Anything else
-// falls through to the library. Keeps the surface tight and side-steps
-// open-redirect classes (backslash tricks, protocol-relative, etc.).
 function safeNext(next: FormDataEntryValue | string | null): string {
 	const value = typeof next === 'string' ? next : null;
 	if (!value) return '/';
@@ -21,7 +25,12 @@ function safeNext(next: FormDataEntryValue | string | null): string {
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const next = safeNext(url.searchParams.get('next'));
 	if (locals.user) redirect(302, next);
-	return { next, canRegister: await registrationAllowed() };
+	return {
+		next,
+		canRegister: await registrationAllowed(),
+		multiRegion: isMultiRegion(),
+		regions: REGIONS.map(r => ({ value: r, label: REGION_LABELS[r] }))
+	};
 };
 
 export const actions: Actions = {
@@ -33,9 +42,6 @@ export const actions: Actions = {
 
 		if (!email || !password) return fail(400, { error: 'Email and password required', email });
 
-		// Keyed by IP+email so one attacker can't lock out legitimate users on
-		// other IPs, and a user fumbling their own password isn't blocked by
-		// someone else on the same NAT.
 		const ip = getClientAddress();
 		const limited = rateLimit(`login:${ip}:${email}`, 10, 15 * MIN);
 		if (!limited.ok) {
@@ -45,13 +51,17 @@ export const actions: Actions = {
 			});
 		}
 
+		const region = await lookupRegionForEmail(email);
+		if (!region) return fail(401, { error: 'Invalid email or password', email });
+
+		const { db } = getDb(region);
 		const [user] = await db.select().from(users).where(eq(users.email, email));
 		if (!user) return fail(401, { error: 'Invalid email or password', email });
 
 		const valid = await verifyPassword(password, user.passwordHash);
 		if (!valid) return fail(401, { error: 'Invalid email or password', email });
 
-		await createSession(user.id, cookies);
+		await createSession(user.id, cookies, region);
 		redirect(302, next);
 	},
 
@@ -60,6 +70,7 @@ export const actions: Actions = {
 		const email = String(data.get('email') ?? '').trim().toLowerCase();
 		const password = String(data.get('password') ?? '');
 		const name = String(data.get('name') ?? '').trim() || null;
+		const regionRaw = data.get('region');
 		const next = safeNext(data.get('next'));
 
 		const ip = getClientAddress();
@@ -79,13 +90,21 @@ export const actions: Actions = {
 		if (password.length < 8) return fail(400, { error: 'Password must be at least 8 characters', email });
 		if (password.length > 72) return fail(400, { error: 'Password must be 72 characters or fewer', email });
 
-		const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-		if (existing) return fail(409, { error: 'An account with that email already exists', email });
+		const region = isValidRegion(regionRaw) ? regionRaw : (isMultiRegion() ? null : 'eu');
+		if (!region) {
+			return fail(400, { error: 'Please select a data region', email });
+		}
 
+		// Check email uniqueness across all regions via the routing table
+		const existingRegion = await lookupRegionForEmail(email);
+		if (existingRegion) return fail(409, { error: 'An account with that email already exists', email });
+
+		const { db } = getDb(region);
 		const passwordHash = await hashPassword(password);
 		const [user] = await db.insert(users).values({ email, passwordHash, name }).returning();
 
-		await createSession(user.id, cookies);
+		await registerEmailRoute(email, region);
+		await createSession(user.id, cookies, region);
 		redirect(302, next);
 	}
 };

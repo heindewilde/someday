@@ -1,7 +1,12 @@
 import { json, error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
+import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/schema';
-import { hashPassword, verifyPassword, invalidateOtherSessions } from '$lib/server/auth';
+import {
+	hashPassword,
+	verifyPassword,
+	invalidateOtherSessions,
+	updateEmailRoute
+} from '$lib/server/auth';
 import { rateLimit } from '$lib/server/rate-limit';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -12,6 +17,7 @@ export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 	const rl = rateLimit(`user:${locals.user.id}`, 10, 15 * 60 * 1000);
 	if (!rl.ok) error(429, `Too many requests. Retry after ${rl.retryAfter}s`);
 
+	const { db } = getDb(locals.user.region);
 	const body = await request.json();
 	const { action } = body;
 
@@ -36,6 +42,7 @@ export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 		if (taken && taken.id !== locals.user.id) error(409, 'Email already in use');
 
 		await db.update(users).set({ email }).where(eq(users.id, locals.user.id));
+		await updateEmailRoute(locals.user.email, email);
 		return json({ ok: true });
 	}
 
@@ -53,12 +60,12 @@ export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 
 		const passwordHash = await hashPassword(newPassword);
 		await db.update(users).set({ passwordHash }).where(eq(users.id, locals.user.id));
-		await invalidateOtherSessions(cookies, locals.user.id);
+		await invalidateOtherSessions(cookies, locals.user.id, locals.user.region);
 		return json({ ok: true });
 	}
 
 	if (action === 'signOutOtherDevices') {
-		await invalidateOtherSessions(cookies, locals.user.id);
+		await invalidateOtherSessions(cookies, locals.user.id, locals.user.region);
 		return json({ ok: true });
 	}
 

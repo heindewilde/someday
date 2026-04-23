@@ -34,6 +34,17 @@
 					<label for="name">Name</label>
 					<input id="name" name="name" type="text" placeholder="Your name" autocomplete="name" />
 				</div>
+				{#if data.multiRegion}
+				<div class="field">
+					<label for="region">Data region</label>
+					<select id="region" name="region">
+						{#each data.regions as r}
+							<option value={r.value}>{r.label}</option>
+						{/each}
+					</select>
+					<p class="field-hint">Your data is stored in this region. Cannot be changed later.</p>
+				</div>
+				{/if}
 			{/if}
 			<div class="field">
 				<label for="email">Email</label>
@@ -163,6 +174,30 @@
 
 	input::placeholder {
 		color: var(--color-subtle);
+	}
+
+	select {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0.5625rem 0.75rem;
+		font-size: 1rem;
+		font-family: inherit;
+		background: var(--color-surface);
+		color: var(--color-text);
+		transition: border-color 0.15s;
+		width: 100%;
+		cursor: pointer;
+	}
+
+	select:focus {
+		outline: none;
+		border-color: var(--color-text);
+	}
+
+	.field-hint {
+		font-size: 0.75rem;
+		color: var(--color-muted);
+		margin: 0.25rem 0 0;
 	}
 
 	.btn-primary {
