@@ -23,9 +23,9 @@
 </p>
 
 <p align="center">
-  <a href="https://someday.sh/"><strong>Try the hosted version →</strong></a>
-  or
   <a href="#-self-hosting"><strong>Self-host in 5 minutes</strong></a>
+  or
+  <a href="https://someday.sh/"><strong>try the hosted version →</strong></a>
 </p>
 
 <!--
