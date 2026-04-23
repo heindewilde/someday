@@ -29,14 +29,15 @@ function verifySecret(incoming: string | null, expected: string): boolean {
 	}
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, url }) => {
 	// Always return 200 — non-2xx triggers Postmark to retry 25× over 24 hours.
-	// Secret is passed via X-Webhook-Secret header (not query string) to keep
-	// it out of server access logs.
+	// Postmark inbound webhooks don't support custom request headers, so the
+	// secret is passed as a query param. Use a long random secret to mitigate
+	// log-exposure risk (this is a server-to-server call, not browser-visible).
 	const expected = env.INBOUND_EMAIL_SECRET;
 	if (!expected) return json({ ok: false, reason: 'unauthorized' });
 
-	const incoming = request.headers.get('X-Webhook-Secret');
+	const incoming = url.searchParams.get('secret');
 	if (!verifySecret(incoming, expected)) {
 		return json({ ok: false, reason: 'unauthorized' });
 	}
