@@ -206,7 +206,7 @@ Works beautifully on phones, tablets, and desktops. The layout adapts gracefully
 
 <!-- TODO: docs/screenshots/dark-mode.png -->
 
-Both light and dark themes are hand-tuned for comfortable long-form reading — not auto-inverted, not an afterthought. Toggle with one click; your preference is remembered across sessions.
+Both light and dark themes are carefully designed for comfortable long-form reading. Toggle with one click; your preference is remembered across sessions.
 
 ---
 
