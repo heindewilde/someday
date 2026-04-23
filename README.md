@@ -1,7 +1,9 @@
 <!-- TODO: drop logo file at docs/logo.svg (or .png). Recommended size: 120×120. -->
+<!--
 <p align="center">
   <img src="docs/logo.svg" alt="Someday" width="120" />
 </p>
+-->
 
 <h1 align="center">Someday</h1>
 
@@ -36,9 +38,12 @@ Screenshot placeholders — drop files into docs/screenshots/ and uncomment:
   - mobile.png       (mobile layout, portrait)
   - highlights.png   (reader with a highlight + note)
 -->
+
+<!--
 <p align="center">
   <img src="docs/screenshots/library.png" alt="Someday library view" width="880" />
 </p>
+-->
 
 ---
 
