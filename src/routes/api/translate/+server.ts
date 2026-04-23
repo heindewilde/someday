@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const url = `${LINGVA}/api/v1/auto/${target}/${encodeURIComponent(text)}`;
-	const res = await fetch(url);
+	const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
 	if (!res.ok) return json({ error: 'Translation failed' }, { status: 502 });
 
 	const data = await res.json();

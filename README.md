@@ -183,7 +183,7 @@ For every article you open, Someday surfaces up to five related pieces from your
 - **Translate any saved article** into one of 15 languages with a click: English, Spanish, French, German, Portuguese, Italian, Dutch, Polish, Russian, Japanese, Chinese, Korean, Arabic, Turkish, Swedish.
 - **Formatting is preserved.** Headings, lists, and quotes keep their structure — you get a clean translated article, not a wall of text.
 - **Fast even on long articles.**
-- **No API keys required.** Translation is powered by the free, open Lingva project.
+- **No API keys required.** Translation is powered by [Lingva](https://github.com/thedaviddelta/lingva-translate), a privacy-respecting proxy for Google Translate. By default it uses the public `lingva.ml` instance — set `LINGVA_URL` to your own instance if you prefer to keep article text entirely off third-party servers.
 
 ### 🔔 Reminders
 
@@ -406,7 +406,7 @@ All configuration is via environment variables (or a `.env` file).
 | `DATABASE_AUTH_TOKEN` | — | No | Auth token for remote libSQL. Required when `DATABASE_URL` points to a remote instance. |
 | `DISABLE_REGISTRATION` | — | No | Set to `true` to block new signups. The first account can always be created so you can bootstrap your own instance with this already on. |
 | `INBOUND_EMAIL_SECRET` | — | No | Shared secret for the Postmark inbound-email webhook. Required only if you're enabling email-to-save. |
-| `LINGVA_URL` | `https://lingva.ml` | No | Lingva translation instance to proxy to. Override if you want to run your own for reliability or privacy. |
+| `LINGVA_URL` | `https://lingva.ml` | No | Lingva translation instance to proxy to. The default public instance works out of the box. Override with your own Lingva instance if you want translation to stay entirely off third-party servers. |
 
 ---
 
@@ -542,7 +542,7 @@ Roughly feature-par with Pocket and Instapaper on saving, reading, tagging, and 
 Yes. A Pi 4 with 2 GB RAM handles a single-user library of thousands of articles comfortably. The Docker image runs on both `arm64` and `amd64`.
 
 **Is my reading list truly private?**
-Yes. Someday only reaches out to the internet for three things: (1) fetching the article URL you save, (2) fetching the favicon and cover image that article references, and (3) if you click *Translate*, proxying the text to the public Lingva instance. That's it. No telemetry, no analytics, no third-party SDKs.
+Yes, with one nuance. Someday only reaches out to the internet for three things: (1) fetching the article URL you save, (2) fetching the favicon and cover image that article references, and (3) if you click *Translate*, proxying the article text through [Lingva](https://github.com/thedaviddelta/lingva-translate) — a privacy-respecting Google Translate proxy that strips tracking identifiers. By default this goes through the public `lingva.ml` instance. If you want translation to stay entirely on-premises, run your own Lingva instance and point `LINGVA_URL` at it. No telemetry, no analytics, no third-party SDKs.
 
 **Can I import my existing library?**
 Readwise Reader CSV is supported natively today. Other formats are on the roadmap; in the meantime the Readwise CSV schema is simple enough to convert into from most exports.
