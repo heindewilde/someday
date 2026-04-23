@@ -95,7 +95,16 @@ async function runImport(
 			let [tag] = await db.select({ id: tags.id }).from(tags)
 				.where(and(eq(tags.userId, userId), eq(tags.slug, slug)));
 			if (!tag) {
-				[tag] = await db.insert(tags).values({ name, slug, userId }).returning({ id: tags.id });
+				const rows = await db.insert(tags).values({ name, slug, userId })
+					.onConflictDoNothing()
+					.returning({ id: tags.id });
+				if (rows.length > 0) {
+					[tag] = rows;
+				} else {
+					// Concurrent import inserted the same tag first; re-select
+					[tag] = await db.select({ id: tags.id }).from(tags)
+						.where(and(eq(tags.userId, userId), eq(tags.slug, slug)));
+				}
 			}
 			tagCache.set(slug, tag.id);
 			return tag.id;

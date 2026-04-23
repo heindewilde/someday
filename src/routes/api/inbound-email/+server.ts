@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { lookupRegionForEmail } from '$lib/server/auth';
 import { articles, users } from '$lib/server/schema';
-import { sanitizeEmailHtml, estimateReadingTime } from '$lib/server/parser';
+import { sanitizeEmailHtml, estimateReadingTime, countWords } from '$lib/server/parser';
 import { env } from '$env/dynamic/private';
 import { eq } from 'drizzle-orm';
 import { timingSafeEqual } from 'crypto';
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 		content = sanitizeEmailHtml(payload.HtmlBody);
 		const text = payload.TextBody?.trim() || content.replace(/<[^>]+>/g, ' ');
 		readingTimeMinutes = estimateReadingTime(text);
-		wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+		wordCount = countWords(text);
 	} else if (payload.TextBody?.trim()) {
 		const esc = payload.TextBody
 			.replace(/&/g, '&amp;')
@@ -80,7 +80,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			.replace(/>/g, '&gt;');
 		content = `<pre style="white-space:pre-wrap;word-break:break-word;">${esc}</pre>`;
 		readingTimeMinutes = estimateReadingTime(payload.TextBody);
-		wordCount = payload.TextBody.trim().split(/\s+/).filter(Boolean).length;
+		wordCount = countWords(payload.TextBody);
 	}
 
 	await db.insert(articles).values({

@@ -102,39 +102,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 
 	const whereClause = and(...conditions);
-	let total = 0;
 
-	const [countRow] = await db
-		.select({ total: sql<number>`count(*)` })
-		.from(articles)
-		.where(whereClause);
-	total = countRow.total;
-
-	const rawArticles = await db
-		.select(selectFields)
-		.from(articles)
-		.where(whereClause)
-		.orderBy(desc(articles.savedAt))
-		.limit(PAGE_SIZE)
-		.offset(offset);
+	const [[countRow], rawArticles] = await Promise.all([
+		db.select({ total: sql<number>`count(*)` }).from(articles).where(whereClause),
+		db.select(selectFields).from(articles).where(whereClause).orderBy(desc(articles.savedAt)).limit(PAGE_SIZE).offset(offset),
+	]);
+	const total = countRow.total;
 
 	const articleIds = rawArticles.map(a => a.id as string);
 
-	const tagMap: Record<string, { id: string; name: string; slug: string }[]> = {};
-	if (articleIds.length > 0) {
-		const tagRows = await db
-			.select({ articleId: articleTags.articleId, tagId: tags.id, tagName: tags.name, tagSlug: tags.slug })
-			.from(articleTags)
-			.innerJoin(tags, eq(articleTags.tagId, tags.id))
-			.where(sql`${articleTags.articleId} IN (${sql.join(articleIds.map(id => sql`${id}`), sql`, `)})`);
-
-		for (const row of tagRows) {
-			if (!tagMap[row.articleId as string]) tagMap[row.articleId as string] = [];
-			tagMap[row.articleId as string].push({ id: row.tagId as string, name: row.tagName as string, slug: row.tagSlug as string });
-		}
-	}
-
-	const [colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
+	const [tagRows, colMap, allTags, allCollections, counts, allReminders, allDomains] = await Promise.all([
+		articleIds.length > 0
+			? db
+				.select({ articleId: articleTags.articleId, tagId: tags.id, tagName: tags.name, tagSlug: tags.slug })
+				.from(articleTags)
+				.innerJoin(tags, eq(articleTags.tagId, tags.id))
+				.where(sql`${articleTags.articleId} IN (${sql.join(articleIds.map(id => sql`${id}`), sql`, `)})`)
+			: Promise.resolve([]),
 		fetchArticleCollections(db, articleIds),
 		getTags(db, userId),
 		getCollections(db, userId),
@@ -142,6 +126,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		getReminders(db, userId),
 		getDomains(db, userId)
 	]);
+
+	const tagMap: Record<string, { id: string; name: string; slug: string }[]> = {};
+	for (const row of tagRows) {
+		(tagMap[row.articleId as string] ??= []).push({ id: row.tagId as string, name: row.tagName as string, slug: row.tagSlug as string });
+	}
 
 	return {
 		articles: rawArticles.map(a => ({ ...a, tags: tagMap[a.id as string] ?? [], collections: colMap[a.id as string] ?? [] })),
@@ -171,8 +160,7 @@ async function fetchArticleCollections(db: Db, articleIds: string[]) {
 		.innerJoin(collections, eq(articleCollections.collectionId, collections.id))
 		.where(sql`${articleCollections.articleId} IN (${sql.join(articleIds.map(id => sql`${id}`), sql`, `)})`);
 	for (const row of rows) {
-		if (!map[row.articleId as string]) map[row.articleId as string] = [];
-		map[row.articleId as string].push({ id: row.id as string, name: row.name as string });
+		(map[row.articleId as string] ??= []).push({ id: row.id as string, name: row.name as string });
 	}
 	return map;
 }

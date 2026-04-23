@@ -19,12 +19,13 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
 	stamps.push(now);
 	hits.set(key, stamps);
 
-	// Opportunistic cleanup so the map doesn't grow forever.
+	// Opportunistic cleanup: only evict keys whose timestamps are all older than
+	// the longest window in use (1 hour). Pruning with the current caller's window
+	// would incorrectly evict entries from longer-window keys.
 	if (hits.size > 5000) {
+		const maxCutoff = now - 60 * 60 * 1000;
 		for (const [k, v] of hits) {
-			const kept = v.filter((t) => t > cutoff);
-			if (kept.length === 0) hits.delete(k);
-			else hits.set(k, kept);
+			if (v.every((t) => t <= maxCutoff)) hits.delete(k);
 		}
 	}
 

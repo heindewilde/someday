@@ -92,8 +92,5 @@ export function isValidRegion(value: unknown): value is Region {
 // separate Turso databases are configured. Self-hosted instances that use a
 // single DATABASE_URL return false and should not show the region picker.
 export function isMultiRegion(): boolean {
-	const eu   = env.DATABASE_URL_EU   ?? env.DATABASE_URL ?? 'file:./data/someday.db';
-	const us   = env.DATABASE_URL_US   ?? env.DATABASE_URL ?? 'file:./data/someday.db';
-	const apac = env.DATABASE_URL_APAC ?? env.DATABASE_URL ?? 'file:./data/someday.db';
-	return eu !== us || eu !== apac;
+	return regionUrl('eu') !== regionUrl('us') || regionUrl('eu') !== regionUrl('apac');
 }

@@ -44,11 +44,10 @@ export async function updateEmailRoute(oldEmail: string, newEmail: string) {
 		.from(emailRouting)
 		.where(eq(emailRouting.email, oldEmail));
 	if (!existing) return;
-	await db.delete(emailRouting).where(eq(emailRouting.email, oldEmail));
-	await db
-		.insert(emailRouting)
-		.values({ email: newEmail, region: existing.region })
-		.onConflictDoNothing();
+	await db.transaction(async (tx) => {
+		await tx.delete(emailRouting).where(eq(emailRouting.email, oldEmail));
+		await tx.insert(emailRouting).values({ email: newEmail, region: existing.region }).onConflictDoNothing();
+	});
 }
 
 export async function hashPassword(password: string) {

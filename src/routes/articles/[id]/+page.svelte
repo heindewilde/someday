@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, afterNavigate } from '$app/navigation';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { addToast } from '$lib/toasts.svelte';
 	import { ArrowLeft, Check, Circle, Star, ExternalLink, Printer, Bell, Languages, Sparkles, Trash2, ChevronDown, Highlighter, X } from 'lucide-svelte';
 
@@ -495,6 +495,16 @@
 		}
 	}
 
+	function activateHighlight(id: string) {
+		const opening = activeHighlightId !== id;
+		activeHighlightId = opening ? id : null;
+		noteInputs[id] ??= highlights.find(h => h.id === id)?.note ?? '';
+		if (opening) {
+			proseEl?.querySelector(`mark[data-highlight-id="${id}"]`)
+				?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+	}
+
 	async function deleteHighlight(id: string) {
 		await fetch(`/api/highlights/${id}`, { method: 'DELETE' });
 		removeHighlightMark(id);
@@ -508,14 +518,17 @@
 		for (const h of highlights) {
 			noteInputs[h.id] = h.note ?? '';
 		}
-		setTimeout(() => {
-			if (!proseEl) return;
-			for (const h of highlights) {
-				if (!proseEl!.querySelector(`mark[data-highlight-id="${h.id}"]`)) {
-					applyHighlightMark(proseEl!, h.startOffset, h.endOffset, h.id);
+		const local = highlights.slice();
+		const el = proseEl;
+		(async () => {
+			await tick();
+			if (!el) return;
+			for (const h of local) {
+				if (!el.querySelector(`mark[data-highlight-id="${h.id}"]`)) {
+					applyHighlightMark(el, h.startOffset, h.endOffset, h.id);
 				}
 			}
-		}, 0);
+		})();
 	});
 
 	$effect(() => {
@@ -715,26 +728,8 @@
 					class:hp-item-active={activeHighlightId === h.id}
 					role="button"
 					tabindex="0"
-					onclick={() => {
-						const opening = activeHighlightId !== h.id;
-						activeHighlightId = opening ? h.id : null;
-						noteInputs[h.id] ??= h.note ?? '';
-						if (opening) {
-							const mark = proseEl?.querySelector(`mark[data-highlight-id="${h.id}"]`);
-							mark?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-						}
-					}}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							const opening = activeHighlightId !== h.id;
-							activeHighlightId = opening ? h.id : null;
-							noteInputs[h.id] ??= h.note ?? '';
-							if (opening) {
-								const mark = proseEl?.querySelector(`mark[data-highlight-id="${h.id}"]`);
-								mark?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-							}
-						}
-					}}
+					onclick={() => activateHighlight(h.id)}
+					onkeydown={(e) => { if (e.key === 'Enter') activateHighlight(h.id); }}
 				>
 					<div class="hp-item-header">
 						<span class="hp-quote">"{h.selectedText.length > 80 ? h.selectedText.slice(0, 80) + '…' : h.selectedText}"</span>

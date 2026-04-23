@@ -41,6 +41,10 @@ export function estimateReadingTime(text: string): number {
 	return Math.max(1, Math.round(words / 238));
 }
 
+export function countWords(text: string): number {
+	return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export function sanitizeEmailHtml(html: string): string {
 	// Strip 1×1 tracking pixels before the main sanitizer runs, since
 	// sanitize-html's allowlist has no way to filter by dimension.
@@ -72,7 +76,7 @@ function detectPaywall(doc: Document, article: { textContent?: string | null } |
 		'[class*="paid-content"]', '[data-testid*="paywall"]',
 	].join(','))) return true;
 
-	const wordCount = (article?.textContent ?? '').trim().split(/\s+/).filter(Boolean).length;
+	const wordCount = countWords(article?.textContent ?? '');
 	if (wordCount > 0 && wordCount < 80) {
 		const bodyText = doc.body?.textContent?.toLowerCase() ?? '';
 		if (/subscribe|subscription|sign in to read|member.{0,20}only|unlock|premium/.test(bodyText)) return true;
@@ -196,7 +200,7 @@ async function parseXUrl(url: string): Promise<ParsedArticle> {
 				favicon: 'https://abs.twimg.com/favicons/twitter.3.ico',
 				coverImage: null,
 				readingTimeMinutes: 1,
-				wordCount: tweetText ? tweetText.split(/\s+/).filter(Boolean).length : 0,
+				wordCount: tweetText ? countWords(tweetText) : 0,
 				isPaywalled: false,
 				source: null,
 			};
@@ -344,7 +348,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 	const content = article?.content ? sanitizeContent(article.content) : null;
 	const textContent = article?.textContent ?? '';
 	const readingTimeMinutes = estimateReadingTime(textContent || description || '');
-	const wordCount = (textContent || '').trim().split(/\s+/).filter(Boolean).length;
+	const wordCount = countWords(textContent || '');
 
 	return {
 		title,
