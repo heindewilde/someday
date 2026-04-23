@@ -158,6 +158,22 @@
 		}
 	}
 
+	let signOutOtherStatus = $state<Status>(null);
+	let signOutOtherLoading = $state(false);
+
+	async function signOutOtherDevices() {
+		signOutOtherLoading = true;
+		signOutOtherStatus = null;
+		try {
+			await patch('signOutOtherDevices', {});
+			signOutOtherStatus = { type: 'success', message: 'All other sessions have been signed out.' };
+		} catch (e: any) {
+			signOutOtherStatus = { type: 'error', message: e.message };
+		} finally {
+			signOutOtherLoading = false;
+		}
+	}
+
 	async function savePassword() {
 		passwordStatus = null;
 		if (newPassword.length < 8) {
@@ -348,6 +364,17 @@
 				<button class="btn btn-outline btn-danger-outline" onclick={() => clearConfirming = true}>
 					Clear library
 				</button>
+			{/if}
+		</section>
+
+		<section class="card danger-zone">
+			<h2>Sign out other devices</h2>
+			<p class="desc">Sign out of your account on all other devices. Your current session will remain active.</p>
+			<button class="btn btn-outline" onclick={signOutOtherDevices} disabled={signOutOtherLoading}>
+				{signOutOtherLoading ? 'Signing out…' : 'Sign out other devices'}
+			</button>
+			{#if signOutOtherStatus}
+				<p class="status {signOutOtherStatus.type}">{signOutOtherStatus.message}</p>
 			{/if}
 		</section>
 

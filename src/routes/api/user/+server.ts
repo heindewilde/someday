@@ -57,5 +57,10 @@ export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 		return json({ ok: true });
 	}
 
+	if (action === 'signOutOtherDevices') {
+		await invalidateOtherSessions(cookies, locals.user.id);
+		return json({ ok: true });
+	}
+
 	error(400, 'Unknown action');
 };
