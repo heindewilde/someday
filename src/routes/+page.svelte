@@ -718,7 +718,7 @@
 					>
 						<div class="card-meta">
 							{#if article.favicon}
-								<img src={article.favicon} alt="" class="favicon" width="13" height="13" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+								<img src={article.favicon} alt="" class="favicon" width="13" height="13" referrerpolicy="no-referrer" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 							{/if}
 							<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : '')}</span>
 							{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
@@ -789,7 +789,7 @@
 								</div>
 							</div>
 							{#if article.coverImage}
-								<img src={article.coverImage} alt="" class="thumb" />
+								<img src={article.coverImage} alt="" class="thumb" referrerpolicy="no-referrer" />
 							{/if}
 						</div>
 

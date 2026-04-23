@@ -630,7 +630,7 @@
 									<div class="similar-meta">
 										{#if s.favicon}
 											<img src={s.favicon} alt="" width="12" height="12" class="similar-fav"
-												onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+												referrerpolicy="no-referrer" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 										{/if}
 										<span class="similar-site">{s.siteName ?? (s.url ? new URL(s.url).hostname : '')}</span>
 										{#if s.readingTimeMinutes}<span class="similar-time">· {s.readingTimeMinutes} min</span>{/if}
@@ -660,7 +660,7 @@
 		<div class="article-meta">
 			{#if article.favicon}
 				<img src={article.favicon} alt="" class="favicon" width="14" height="14"
-					onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+					referrerpolicy="no-referrer" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 			{/if}
 			<span class="site">{article.siteName ?? (article.url ? new URL(article.url).hostname : '')}</span>
 			{#if article.author}<span class="sep">·</span><span class="author">{article.author}</span>{/if}
@@ -676,7 +676,7 @@
 
 		{#if article.coverImage}
 			<img src={article.coverImage} alt="" class="cover"
-				onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+				referrerpolicy="no-referrer" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 		{/if}
 
 		<div bind:this={proseEl} class:highlight-active={highlightMode} role="article">
