@@ -20,9 +20,6 @@
 <p align="center">
   <a href="https://github.com/heindewilde/someday/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/heindewilde/someday/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
-  <a href="https://github.com/heindewilde/someday/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/heindewilde/someday?style=social"></a>
-  <a href="https://github.com/heindewilde/someday/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/heindewilde/someday"></a>
-  <a href="https://github.com/heindewilde/someday/issues"><img alt="Issues" src="https://img.shields.io/github/issues/heindewilde/someday"></a>
   <img alt="Built with SvelteKit" src="https://img.shields.io/badge/built%20with-SvelteKit-ff3e00?logo=svelte&logoColor=white">
   <img alt="SQLite" src="https://img.shields.io/badge/database-SQLite-003B57?logo=sqlite&logoColor=white">
   <img alt="Docker ready" src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white">
