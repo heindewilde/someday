@@ -10,9 +10,9 @@
 <p align="center">
   <em>
     The read-it-later solution you've been looking for.<br>
-    Private&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
-    Lightweight&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
-    Feature-packed&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+    Private&nbsp;&nbsp;·&nbsp;&nbsp;
+    Lightweight&nbsp;&nbsp;·&nbsp;&nbsp;
+    Feature-packed&nbsp;&nbsp;·&nbsp;&nbsp;
     Delightfully-designed
   </em>
 </p>
