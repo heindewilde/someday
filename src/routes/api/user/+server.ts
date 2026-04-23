@@ -2,11 +2,15 @@ import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { hashPassword, verifyPassword } from '$lib/server/auth';
+import { rateLimit } from '$lib/server/rate-limit';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+
+	const rl = rateLimit(`user:${locals.user.id}`, 10, 15 * 60 * 1000);
+	if (!rl.ok) error(429, `Too many requests. Retry after ${rl.retryAfter}s`);
 
 	const body = await request.json();
 	const { action } = body;

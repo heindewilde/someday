@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { articles, tags, articleTags } from '$lib/server/schema';
 import { cleanUrl, parseArticle } from '$lib/server/parser';
 import { slugify } from '$lib/server/utils';
+import { rateLimit } from '$lib/server/rate-limit';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
@@ -204,6 +205,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'Unauthorized');
+
+	const rl = rateLimit(`import:${locals.user.id}`, 5, 60 * 60 * 1000);
+	if (!rl.ok) error(429, `Too many requests. Retry after ${rl.retryAfter}s`);
 
 	const existing = importJobs.get(locals.user.id);
 	if (existing && !existing.done) error(409, 'An import is already running');

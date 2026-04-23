@@ -4,6 +4,7 @@ import { articles, users } from '$lib/server/schema';
 import { sanitizeEmailHtml, estimateReadingTime } from '$lib/server/parser';
 import { env } from '$env/dynamic/private';
 import { eq } from 'drizzle-orm';
+import { timingSafeEqual } from 'crypto';
 import type { RequestHandler } from './$types';
 
 interface PostmarkPayload {
@@ -15,10 +16,28 @@ interface PostmarkPayload {
 	MessageID: string;
 }
 
-export const POST: RequestHandler = async ({ request, url }) => {
-	// Always return 200 — non-2xx triggers Postmark to retry 25× over 24 hours
-	const secret = url.searchParams.get('secret');
-	if (!env.INBOUND_EMAIL_SECRET || secret !== env.INBOUND_EMAIL_SECRET) {
+function verifySecret(incoming: string | null, expected: string): boolean {
+	if (!incoming) return false;
+	try {
+		const a = Buffer.from(incoming);
+		const b = Buffer.from(expected);
+		// timingSafeEqual requires equal-length buffers
+		if (a.length !== b.length) return false;
+		return timingSafeEqual(a, b);
+	} catch {
+		return false;
+	}
+}
+
+export const POST: RequestHandler = async ({ request }) => {
+	// Always return 200 — non-2xx triggers Postmark to retry 25× over 24 hours.
+	// Secret is passed via X-Webhook-Secret header (not query string) to keep
+	// it out of server access logs.
+	const expected = env.INBOUND_EMAIL_SECRET;
+	if (!expected) return json({ ok: false, reason: 'unauthorized' });
+
+	const incoming = request.headers.get('X-Webhook-Secret');
+	if (!verifySecret(incoming, expected)) {
 		return json({ ok: false, reason: 'unauthorized' });
 	}
 

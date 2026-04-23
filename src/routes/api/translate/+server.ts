@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { rateLimit } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 const LINGVA = env.LINGVA_URL || 'https://lingva.ml';
@@ -21,6 +22,9 @@ const ALLOWED_LANGS = new Set([
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
+
+	const rl = rateLimit(`translate:${locals.user.id}`, 60, 60 * 1000);
+	if (!rl.ok) return json({ error: `Too many requests. Retry after ${rl.retryAfter}s` }, { status: 429 });
 
 	const { text, target = 'en' } = await request.json();
 	if (!text?.trim()) return json({ translated: '' });
