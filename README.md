@@ -8,7 +8,7 @@
 <h1 align="center">Someday</h1>
 
 <p align="center">
-  <em>A calm, self-hosted read-later app.<br/>Save anything, read anywhere, own your data.</em>
+  <em>The read-it-later solution you've been looking for.<br>Private. Lightweight. Feature-packed. Delightfully-designed.</em>
 </p>
 
 <p align="center">
@@ -24,10 +24,8 @@
 
 <p align="center">
   <a href="https://someday.sh/"><strong>Try the hosted version →</strong></a>
-  &nbsp;·&nbsp;
+  or
   <a href="#-self-hosting"><strong>Self-host in 5 minutes</strong></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/heindewilde/someday"><strong>Star on GitHub</strong></a>
 </p>
 
 <!--
