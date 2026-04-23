@@ -6,7 +6,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { env } from '$env/dynamic/private';
 import type { Cookies } from '@sveltejs/kit';
 
-const SESSION_COOKIE = 'session';
+const SESSION_COOKIE = '__Host-session';
 const SESSION_DAYS = 30;
 
 // Registration is gated by DISABLE_REGISTRATION, with a bootstrap escape
