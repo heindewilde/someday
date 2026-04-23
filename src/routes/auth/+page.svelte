@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { ArrowLeft } from 'lucide-svelte';
 
 	let { data, form } = $props();
 	let mode = $state<'login' | 'register'>('login');
@@ -9,14 +10,20 @@
 </script>
 
 <svelte:head>
-	<title>Sign in — Someday</title>
+	<title>{mode === 'login' ? 'Sign in' : 'Create account'} — Someday</title>
 </svelte:head>
 
 <div class="auth-page">
+	<a class="back-link" href="/">
+		<ArrowLeft size={14} strokeWidth={2} />
+		<span>Back</span>
+	</a>
+
 	<div class="auth-box">
-		<div class="auth-logo">
+		<a class="auth-logo" href="/" aria-label="Someday home">
+			<span class="logo-mark" aria-hidden="true"></span>
 			<span class="logo-text">someday</span>
-		</div>
+		</a>
 
 		<h1>{mode === 'login' ? 'Welcome back' : 'Create account'}</h1>
 		<p class="subtitle">
@@ -90,12 +97,34 @@
 
 <style>
 	.auth-page {
+		position: relative;
 		min-height: 100vh;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		background: var(--color-bg);
 		padding: 1rem;
+	}
+
+	.back-link {
+		position: absolute;
+		top: 1.5rem;
+		left: 1.5rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		color: var(--color-muted);
+		text-decoration: none;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		padding: 0.375rem 0.625rem;
+		border-radius: var(--radius-md);
+		transition: color 0.15s, background 0.15s;
+	}
+
+	.back-link:hover {
+		color: var(--color-text);
+		background: var(--color-surface);
 	}
 
 	.auth-box {
@@ -109,11 +138,24 @@
 	}
 
 	.auth-logo {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 		margin-bottom: 1.5rem;
+		text-decoration: none;
+		color: var(--color-text);
+	}
+
+	.logo-mark {
+		width: 1.125rem;
+		height: 1.125rem;
+		border-radius: 999px;
+		background: radial-gradient(circle at 30% 30%, #fcd34d 0%, #f59e0b 55%, #b45309 100%);
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.08);
 	}
 
 	.logo-text {
-		font-size: 1.25rem;
+		font-size: 1.0625rem;
 		font-weight: 700;
 		letter-spacing: -0.04em;
 		color: var(--color-text);

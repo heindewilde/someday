@@ -4,6 +4,7 @@
 	import { page, navigating } from '$app/state';
 	import { addToast } from '$lib/toasts.svelte';
 	import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
+	import Landing from '$lib/components/Landing.svelte';
 	import { Menu, BookOpen, BookMarked, Check, Star, Archive, ArchiveRestore, Info, Plus, Sun, Moon, Settings, LogOut, Search, Circle, Folder, X, ExternalLink, Trash2, Bell, BarChart3, Tag, Clock, Globe, ChevronDown } from 'lucide-svelte';
 
 	let { data } = $props();
@@ -153,6 +154,7 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
+		if (data.landing) return;
 		const target = e.target as HTMLElement;
 		const isEditing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
 
@@ -416,8 +418,16 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
-<svelte:head><title>Someday</title></svelte:head>
+<svelte:head>
+	<title>{data.landing ? "Someday — A calmer home for what you'll read later" : 'Someday'}</title>
+	{#if data.landing}
+		<meta name="description" content="Someday is an open-source, privacy-first read-it-later app. Save from anywhere, read in a distraction-free reader, highlight, search, and own your data." />
+	{/if}
+</svelte:head>
 
+{#if data.landing}
+	<Landing />
+{:else}
 <div class="app">
 	<header class="mobile-header">
 		<button class="hamburger" onclick={() => sidebarOpen = !sidebarOpen} aria-label="Toggle menu">
@@ -965,6 +975,7 @@
 
 {#if showShortcutHelp}
 	<ShortcutHelp onclose={() => showShortcutHelp = false} />
+{/if}
 {/if}
 
 <style>

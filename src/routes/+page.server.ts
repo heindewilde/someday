@@ -1,4 +1,3 @@
-import { redirect } from '@sveltejs/kit';
 import { getDb, type DbEntry } from '$lib/server/db';
 import { articles, tags, articleTags, collections, articleCollections, reminders } from '$lib/server/schema';
 import { eq, and, desc, sql, lte, gt, lt } from 'drizzle-orm';
@@ -8,8 +7,35 @@ type Db = DbEntry['db'];
 
 const PAGE_SIZE = 30;
 
+function landingPayload() {
+	return {
+		landing: true as const,
+		articles: [] as never[],
+		tags: [] as never[],
+		collections: [] as never[],
+		filter: 'unread' as const,
+		activeTag: null,
+		activeCollection: null,
+		readingTime: null,
+		domain: null,
+		domains: [] as never[],
+		q: null,
+		counts: {
+			unread: 0,
+			read: 0,
+			archive: 0,
+			reading: 0,
+			readingStats: { articles: 0, minutes: 0, words: 0 }
+		},
+		total: 0,
+		offset: 0,
+		pageSize: PAGE_SIZE,
+		reminders: [] as never[]
+	};
+}
+
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (!locals.user) redirect(302, '/auth');
+	if (!locals.user) return landingPayload();
 	const { db } = getDb(locals.user.region);
 
 	const userId = locals.user.id;
@@ -133,6 +159,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	return {
+		landing: false as const,
 		articles: rawArticles.map(a => ({ ...a, tags: tagMap[a.id as string] ?? [], collections: colMap[a.id as string] ?? [] })),
 		tags: allTags,
 		collections: allCollections,
