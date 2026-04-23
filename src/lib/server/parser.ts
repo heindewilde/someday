@@ -1,5 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
+import { sanitizeContent } from './sanitize';
 
 export interface ParsedArticle {
 	title: string;
@@ -41,21 +42,16 @@ export function estimateReadingTime(text: string): number {
 }
 
 export function sanitizeEmailHtml(html: string): string {
+	// Strip 1×1 tracking pixels before the main sanitizer runs, since
+	// sanitize-html's allowlist has no way to filter by dimension.
 	const dom = new JSDOM(html);
 	const doc = dom.window.document;
-	doc.querySelectorAll('script, style, link[rel="stylesheet"], base').forEach(el => el.remove());
-	doc.querySelectorAll('*').forEach(el => {
-		for (const attr of [...el.attributes]) {
-			if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
-		}
-	});
-	// Remove 1×1 tracking pixels
 	doc.querySelectorAll('img').forEach(img => {
 		const w = parseInt(img.getAttribute('width') ?? '999');
 		const h = parseInt(img.getAttribute('height') ?? '999');
 		if (w <= 1 || h <= 1) img.remove();
 	});
-	return doc.body?.innerHTML ?? '';
+	return sanitizeContent(doc.body?.innerHTML ?? '');
 }
 
 function detectPaywall(doc: Document, article: { textContent?: string | null } | null): boolean {
@@ -298,7 +294,7 @@ export async function parseArticle(url: string): Promise<ParsedArticle> {
 	const siteName = article?.siteName || meta.siteName;
 	const author = article?.byline ?? null;
 
-	const content = article?.content ?? null;
+	const content = article?.content ? sanitizeContent(article.content) : null;
 	const textContent = article?.textContent ?? '';
 	const readingTimeMinutes = estimateReadingTime(textContent || description || '');
 	const wordCount = (textContent || '').trim().split(/\s+/).filter(Boolean).length;
