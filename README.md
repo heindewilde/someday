@@ -44,8 +44,6 @@ Screenshot placeholders — drop files into docs/screenshots/ and uncomment:
 
 ## Why Someday?
 
-**Private. Lightweight. Feature-packed. Beautifully designed.** That's the whole pitch. The rest of this section unpacks it.
-
 **Private by default.** Your reading list shouldn't live on someone else's server. Someday runs entirely on hardware you control, with no tracking, no telemetry, and no third-party accounts to sign in to. Your library never leaves your server.
 
 **Lightweight and fast.** One small app, one database file — that's the whole stack. It boots in seconds, idles on almost nothing, and stays snappy even with thousands of articles saved. Happy on a Raspberry Pi, a spare corner of your home server, or a $5 VPS.
@@ -113,6 +111,7 @@ One database file. Take a copy and walk away whenever. AGPL-3.0 — you have the
 <!-- TODO: docs/screenshots/save.png -->
 
 - **Paste-to-save** from the topbar, or hit `⌘V` / `Ctrl+V` anywhere to save the URL on your clipboard.
+- **Bookmarklet** — drag the "Save to Someday" button from Settings to your bookmarks bar and save any page in one click, without leaving the tab.
 - **Email-to-save** — forward any newsletter or article to your Someday address and it lands in your library seconds later, with the sender as byline. [Setup guide below.](#-email-to-save-postmark)
 - **Readwise Reader CSV import** preserves tags, read/unread state, archive state, and saved date. Runs in the background with a progress bar.
 - **Automatic handling** for PDFs (saved as bookmarks), product pages (metadata-only), and tweets.
@@ -195,27 +194,15 @@ For every article you open, Someday surfaces up to five related pieces from your
 
 ### ⌨️ Keyboard-first
 
-Hit `?` anywhere to see this live. All shortcuts work without modifiers except where noted.
+Someday is built for readers who prefer their hands on the keyboard. Navigate the library, open articles, toggle read/favorite/archive, save from the clipboard, and dismiss menus — all without reaching for the mouse. Hit `?` anywhere in the app to see every available shortcut.
 
-| Action | Keys |
-|---|---|
-| Next / previous article | `j` `k` or `↓` `↑` |
-| Open reader | `Enter` or `o` |
-| Switch filter (Unread / Read / Favorites / Archive) | `1` `2` `3` `4` |
-| Toggle read | `r` |
-| Toggle favorite | `f` |
-| Archive | `e` |
-| Delete (with undo) | `d` |
-| Focus search | `/` |
-| Dismiss menus / clear search | `Esc` |
-| Paste-to-save URL | `⌘V` / `Ctrl+V` |
-| Show shortcut help | `?` |
-
-### 📱 Mobile & dark mode
+### 📱 Mobile, PWA & dark mode
 
 <!-- TODO: docs/screenshots/mobile.png docs/screenshots/dark-mode.png -->
 
 Works beautifully on phones, tablets, and desktops. A layout that adapts gracefully from your pocket to a 4K monitor, with a hamburger sidebar and touch-friendly controls on small screens. Dark mode is a first-class citizen — both themes are hand-tuned, not auto-inverted.
+
+Someday ships as a **Progressive Web App** — add it to your home screen from any browser for a full-screen, app-like experience on iOS and Android with no app store required.
 
 ---
 
@@ -227,7 +214,7 @@ Works beautifully on phones, tablets, and desktops. A layout that adapts gracefu
 | **Storage** | Managed, encrypted | Your database file |
 | **Updates** | Automatic | `git pull && docker compose up -d --build` |
 | **Backups** | Automated, offsite | Your cron, your volume |
-| **Cost** | TBD (private beta) | Free (you pay for hosting) |
+| **Cost** | Free during beta | Free (you pay for hosting) |
 | **Privacy** | Hosted by us | Never leaves your server |
 | **Best for** | "I just want to read." | "I want to own every byte." |
 
@@ -237,7 +224,7 @@ Both run the exact same open-source code.
 
 ## ☁️ Cloud — someday.sh
 
-Someday is available as a managed service at **[someday.sh](https://someday.sh/)**, currently in **private beta**.
+Someday is available as a managed service at **[someday.sh](https://someday.sh/)**.
 
 **What you get:**
 - Everything in this README, zero setup
@@ -245,9 +232,7 @@ Someday is available as a managed service at **[someday.sh](https://someday.sh/)
 - Automated offsite backups
 - Same AGPL-3.0 code, just hosted for you
 
-**[Join the waitlist →](https://someday.sh/)**
-
-> Your data is yours. Someday exports to a portable format compatible with Readwise Reader's CSV schema — take it with you whenever you want.
+**[Get started →](https://someday.sh/)**
 
 ---
 
@@ -468,7 +453,6 @@ For the technically curious:
 - **Migrations and maintenance run automatically at startup.** No manual steps to remember on upgrade.
 - **Session auth** with bcrypt-hashed passwords and httpOnly cookies. Open registration; every user's library is isolated.
 
-See [`CLAUDE.md`](CLAUDE.md) for the deeper architectural reference used by contributors.
 
 ---
 
@@ -492,8 +476,8 @@ Not promises — a rough direction. Open an issue to vote or propose changes.
 - **Server-side reminder delivery** (email + push).
 - **Reader typography controls** — font size, measure width, line height.
 - **More importers** — Pocket, Instapaper, Raindrop.
-- **Mobile apps** — PWA first, native shells to follow.
 - **Export** — one-click backup to Readwise-compatible CSV.
+- **Native mobile shells** — wrapping the PWA for App Store / Play Store distribution.
 
 ---
 
