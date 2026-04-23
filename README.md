@@ -200,7 +200,7 @@ Someday is built for readers who prefer their hands on the keyboard. Navigate th
 
 <!-- TODO: docs/screenshots/mobile.png -->
 
-Works beautifully on phones, tablets, and desktops. The layout adapts gracefully from your pocket to a 4K monitor, with a hamburger sidebar and touch-friendly controls on small screens. Someday ships as a **Progressive Web App** — add it to your home screen from any browser for a full-screen, app-like experience on iOS and Android, no app store required.
+Works beautifully on phones, tablets, and desktops. Someday ships as a **Progressive Web App** — add it to your home screen from any browser for a full-screen, app-like experience on iOS and Android, no app store required. The share sheet integration lets you save articles with one tap directly from your mobile browser.
 
 ### 🌙 Dark mode
 
