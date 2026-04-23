@@ -9,6 +9,10 @@ import type { RequestHandler } from './$types';
 
 const CONCURRENCY = 5;
 const JOB_TTL_MS = 5 * 60 * 1000;
+// Minimum gap between consecutive fetches to the same hostname. Prevents a
+// CSV heavy on one domain (e.g. 500 Medium articles) from burning the shared
+// Fly.io IP and triggering a ban that affects all users.
+const DOMAIN_DELAY_MS = 1000;
 
 interface ImportJob {
 	total: number;
@@ -70,6 +74,16 @@ async function runImport(
 	const tagCache = new Map<string, string>();
 	const tagInFlight = new Map<string, Promise<string>>();
 
+	// Per-domain last-fetch timestamp. Workers check this before calling
+	// parseArticle so we never hammer a single domain faster than DOMAIN_DELAY_MS.
+	const domainLastFetch = new Map<string, number>();
+	async function acquireDomainSlot(hostname: string) {
+		const last = domainLastFetch.get(hostname) ?? 0;
+		const wait = DOMAIN_DELAY_MS - (Date.now() - last);
+		if (wait > 0) await new Promise<void>(r => setTimeout(r, wait));
+		domainLastFetch.set(hostname, Date.now());
+	}
+
 	async function upsertTag(name: string, slug: string): Promise<string> {
 		const cached = tagCache.get(slug);
 		if (cached) return cached;
@@ -119,6 +133,7 @@ async function runImport(
 
 		let articleValues: typeof articles.$inferInsert;
 		try {
+			await acquireDomainSlot(hostname);
 			const parsed = await parseArticle(normalizedUrl);
 			articleValues = {
 				...parsed,
