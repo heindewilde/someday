@@ -8,7 +8,13 @@
 <h1 align="center">Someday 🌅</h1>
 
 <p align="center">
-  <em>The read-it-later solution you've been looking for.<br>Private&nbsp;·&nbsp;Lightweight&nbsp;·&nbsp;Feature-packed&nbsp;·&nbsp;Delightfully-designed.</em>
+  <em>
+    The read-it-later solution you've been looking for.<br>
+    Private&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+    Lightweight&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+    Feature-packed&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+    Delightfully-designed
+  </em>
 </p>
 
 <p align="center">
