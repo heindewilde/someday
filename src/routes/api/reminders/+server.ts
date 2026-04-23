@@ -32,6 +32,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const remindAtDate = new Date(remindAt);
 	if (isNaN(remindAtDate.getTime())) error(400, 'Invalid date');
 
+	// Verify the article belongs to the requesting user before creating a reminder
+	const [owned] = await db
+		.select({ id: articles.id })
+		.from(articles)
+		.where(and(eq(articles.id, articleId), eq(articles.userId, locals.user.id)));
+	if (!owned) error(404, 'Not found');
+
 	// Upsert: delete any existing reminder for this article, then create
 	await db.delete(reminders).where(
 		and(eq(reminders.userId, locals.user.id), eq(reminders.articleId, articleId))

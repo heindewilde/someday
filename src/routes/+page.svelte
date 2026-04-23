@@ -573,10 +573,12 @@
 				<Settings size={14} strokeWidth={1.4} />
 				Settings
 			</a>
-			<a href="/auth/logout" class="nav-item">
-				<LogOut size={14} strokeWidth={1.4} />
-				Sign out
-			</a>
+			<form method="POST" action="/auth/logout">
+				<button type="submit" class="nav-item">
+					<LogOut size={14} strokeWidth={1.4} />
+					Sign out
+				</button>
+			</form>
 		</div>
 	</aside>
 

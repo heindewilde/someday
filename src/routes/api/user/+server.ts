@@ -1,12 +1,12 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
-import { hashPassword, verifyPassword } from '$lib/server/auth';
+import { hashPassword, verifyPassword, invalidateOtherSessions } from '$lib/server/auth';
 import { rateLimit } from '$lib/server/rate-limit';
 import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
-export const PATCH: RequestHandler = async ({ request, locals }) => {
+export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 	if (!locals.user) error(401, 'Unauthorized');
 
 	const rl = rateLimit(`user:${locals.user.id}`, 10, 15 * 60 * 1000);
@@ -45,6 +45,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 
 		if (!currentPassword || !newPassword) error(400, 'Both passwords are required');
 		if (newPassword.length < 8) error(400, 'New password must be at least 8 characters');
+		if (newPassword.length > 72) error(400, 'New password must be 72 characters or fewer');
 
 		const [user] = await db.select().from(users).where(eq(users.id, locals.user.id));
 		const valid = await verifyPassword(currentPassword, user.passwordHash);
@@ -52,6 +53,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 
 		const passwordHash = await hashPassword(newPassword);
 		await db.update(users).set({ passwordHash }).where(eq(users.id, locals.user.id));
+		await invalidateOtherSessions(cookies, locals.user.id);
 		return json({ ok: true });
 	}
 

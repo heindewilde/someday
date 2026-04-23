@@ -1,6 +1,6 @@
 import { db } from './db';
 import { users, sessions } from './schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, ne, and, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { createId } from '@paralleldrive/cuid2';
 import { env } from '$env/dynamic/private';
@@ -71,4 +71,17 @@ export async function deleteSession(cookies: Cookies) {
 		await db.delete(sessions).where(eq(sessions.id, sessionId));
 	}
 	cookies.delete(SESSION_COOKIE, { path: '/' });
+}
+
+// Invalidate all sessions for a user except the current one.
+// Call after a password change so hijacked sessions are evicted.
+export async function invalidateOtherSessions(cookies: Cookies, userId: string) {
+	const currentId = cookies.get(SESSION_COOKIE);
+	if (currentId) {
+		await db.delete(sessions).where(
+			and(eq(sessions.userId, userId), ne(sessions.id, currentId))
+		);
+	} else {
+		await db.delete(sessions).where(eq(sessions.userId, userId));
+	}
 }

@@ -77,6 +77,7 @@ export const actions: Actions = {
 
 		if (!email || !password) return fail(400, { error: 'Email and password required', email });
 		if (password.length < 8) return fail(400, { error: 'Password must be at least 8 characters', email });
+		if (password.length > 72) return fail(400, { error: 'Password must be 72 characters or fewer', email });
 
 		const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
 		if (existing) return fail(409, { error: 'An account with that email already exists', email });

@@ -354,7 +354,9 @@
 		<section class="card danger-zone">
 			<h2>Sign out</h2>
 			<p class="desc">Sign out of your account on this device.</p>
-			<a href="/auth/logout" class="btn btn-outline">Sign out</a>
+			<form method="POST" action="/auth/logout">
+				<button type="submit" class="btn btn-outline">Sign out</button>
+			</form>
 		</section>
 	</div>
 </div>
