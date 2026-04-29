@@ -21,9 +21,9 @@ export const PATCH: RequestHandler = async ({ request, locals, cookies }) => {
 	const body = await request.json();
 	const { action } = body;
 
-	if (action === 'updateName') {
-		const name = String(body.name ?? '').trim() || null;
-		await db.update(users).set({ name }).where(eq(users.id, locals.user.id));
+	if (action === 'updateUsername') {
+		const username = String(body.username ?? '').trim().replace(/^@/, '') || null;
+		await db.update(users).set({ username }).where(eq(users.id, locals.user.id));
 		return json({ ok: true });
 	}
 

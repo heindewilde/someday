@@ -5,7 +5,7 @@ export const users = sqliteTable('users', {
 	id: text('id').primaryKey().$defaultFn(() => createId()),
 	email: text('email').notNull().unique(),
 	passwordHash: text('password_hash').notNull(),
-	name: text('name'),
+	username: text('username'),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
 
@@ -88,4 +88,11 @@ export const highlights = sqliteTable('highlights', {
 export const emailRouting = sqliteTable('email_routing', {
 	email: text('email').primaryKey(),
 	region: text('region').notNull(),
+});
+
+export const passwordResetTokens = sqliteTable('password_reset_tokens', {
+	token: text('token').primaryKey(),
+	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+	usedAt: integer('used_at', { mode: 'timestamp' }),
 });

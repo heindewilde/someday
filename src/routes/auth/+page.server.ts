@@ -69,7 +69,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const email = String(data.get('email') ?? '').trim().toLowerCase();
 		const password = String(data.get('password') ?? '');
-		const name = String(data.get('name') ?? '').trim() || null;
+		const username = String(data.get('username') ?? '').trim().replace(/^@/, '') || null;
 		const regionRaw = data.get('region');
 		const next = safeNext(data.get('next'));
 
@@ -101,7 +101,7 @@ export const actions: Actions = {
 
 		const { db } = getDb(region);
 		const passwordHash = await hashPassword(password);
-		const [user] = await db.insert(users).values({ email, passwordHash, name }).returning();
+		const [user] = await db.insert(users).values({ email, passwordHash, username }).returning();
 
 		await registerEmailRoute(email, region);
 		await createSession(user.id, cookies, region);

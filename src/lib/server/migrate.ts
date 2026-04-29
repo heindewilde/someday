@@ -9,7 +9,7 @@ async function migrateClient(client: Client, isFile: boolean) {
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
-			name TEXT,
+			username TEXT,
 			created_at INTEGER
 		)
 	`);
@@ -236,6 +236,22 @@ async function migrateClient(client: Client, isFile: boolean) {
 	await client.execute(
 		`CREATE INDEX IF NOT EXISTS idx_articles_user_domain ON articles(user_id, domain)`
 	);
+
+	// Rename name → username for existing databases
+	try {
+		await client.execute(`ALTER TABLE users RENAME COLUMN name TO username`);
+	} catch {
+		// Already renamed or column never existed on this DB
+	}
+
+	await client.execute(`
+		CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			token TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			expires_at INTEGER NOT NULL,
+			used_at INTEGER
+		)
+	`);
 
 	// Clear stale parsing sentinels from prior crashed workers
 	await client.execute(`UPDATE articles SET source = NULL WHERE source = 'parsing'`);
