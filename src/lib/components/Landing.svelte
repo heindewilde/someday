@@ -2,12 +2,12 @@
 	import {
 		Github,
 		ArrowRight,
-		BookOpen,
-		Highlighter,
-		Search,
-		Languages,
-		Inbox,
 		Lock,
+		Database,
+		Zap,
+		Sparkles,
+		CheckCircle,
+		BookmarkPlus,
 		Moon,
 		Sun,
 		Star
@@ -31,34 +31,34 @@
 
 	const features = [
 		{
-			icon: Inbox,
-			title: 'Save from anywhere',
-			body: 'Paste a URL, drop a bookmarklet, forward an email, or import from Readwise. Tracking params stripped, duplicates skipped.'
-		},
-		{
-			icon: BookOpen,
-			title: 'A reader that gets out of the way',
-			body: 'Readability-powered extraction, thoughtful typography, light and dark themes. Save any article as a PDF.'
-		},
-		{
-			icon: Highlighter,
-			title: 'Highlights & notes',
-			body: 'Select-to-highlight with inline notes and a side panel that follows you through the article.'
-		},
-		{
-			icon: Search,
-			title: 'Fast full-text search',
-			body: 'SQLite FTS5 + BM25 across your whole library. Similar-article discovery without a vector DB.'
-		},
-		{
-			icon: Languages,
-			title: '15-language translation',
-			body: 'One-click translation via Lingva — read anything in your language, without leaving the reader.'
-		},
-		{
 			icon: Lock,
-			title: 'Own your data',
-			body: 'One SQLite file. AGPL-3.0 licensed. Self-host on a Raspberry Pi, or use the hosted cloud.'
+			title: 'Private by design',
+			body: 'No tracking, no ads, no profiling your reading habits. Your library is yours alone.'
+		},
+		{
+			icon: Database,
+			title: 'Your data, your rules',
+			body: 'Stored in a single portable file. Export or move it any time — no lock-in, ever.'
+		},
+		{
+			icon: Zap,
+			title: 'Fast and lightweight',
+			body: 'Loads instantly, no bloat, works on any connection. Reading should never feel slow.'
+		},
+		{
+			icon: Sparkles,
+			title: 'Beautifully designed',
+			body: 'A distraction-free reading experience with thoughtful typography and light and dark themes.'
+		},
+		{
+			icon: CheckCircle,
+			title: 'All features you need',
+			body: 'Highlights, notes, search, translation, collections. Everything a serious reader needs, nothing you don\'t.'
+		},
+		{
+			icon: BookmarkPlus,
+			title: 'Save in one click',
+			body: 'A bookmarklet, an email forward, or a simple paste. Save anything in seconds without breaking your flow.'
 		}
 	];
 </script>
@@ -93,7 +93,7 @@
 				<span>Open source</span>
 				<span class="eyebrow-sep">·</span>
 				<Star size={13} strokeWidth={2} fill="currentColor" />
-				<span>AGPL-3.0</span>
+				<span>Star on GitHub</span>
 				<ArrowRight size={13} strokeWidth={2} />
 			</a>
 
@@ -102,9 +102,8 @@
 			</h1>
 
 			<p class="subtitle">
-				Someday is an open-source read-it-later app. Save from anywhere, read in
-				a distraction-free reader, highlight what matters, and own every byte of
-				your library.
+				Save articles, read them beautifully, and keep full control of your data.
+				Someday is private by design — no tracking, no ads, just your reading.
 			</p>
 
 			<div class="cta-row">
@@ -118,7 +117,7 @@
 				</a>
 			</div>
 
-			<p class="hero-note">Free to self-host. Free to try on the cloud.</p>
+			<p class="hero-note">No credit card required. Free to try on the cloud.</p>
 		</section>
 
 		<section class="features" aria-label="Features">
