@@ -56,7 +56,6 @@
 					<span class="brand-mark lg" aria-hidden="true"></span>
 					<span class="brand-text lg">someday</span>
 				</a>
-				<p class="tagline">Your reading, your rules.</p>
 				<ul class="trust-signals">
 					{#each trustSignals as t}
 						<li>
@@ -235,16 +234,7 @@
 		gap: 0.625rem;
 		text-decoration: none;
 		color: var(--color-text);
-		margin-bottom: 1.75rem;
-	}
-
-	.tagline {
-		font-size: 1.75rem;
-		font-weight: 700;
-		letter-spacing: -0.03em;
-		line-height: 1.2;
-		margin: 0 0 2rem;
-		color: var(--color-text);
+		margin-bottom: 2.5rem;
 	}
 
 	.trust-signals {
