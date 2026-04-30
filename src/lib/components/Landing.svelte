@@ -99,7 +99,7 @@
 				<Github size={16} strokeWidth={2} />
 			</a>
 			<a class="btn-ghost" href="/auth">Sign in</a>
-			<a class="btn-primary" href="/auth">Get started</a>
+			<a class="btn-primary" href="/auth?mode=register">Get started</a>
 		</nav>
 	</header>
 
@@ -108,7 +108,6 @@
 			<a class="eyebrow" href={GITHUB_URL} target="_blank" rel="noreferrer noopener">
 				<Github size={13} strokeWidth={2} />
 				<span>Open source</span>
-				<ArrowRight size={13} strokeWidth={2} />
 			</a>
 
 			<h1>
@@ -121,7 +120,7 @@
 			</p>
 
 			<div class="cta-row">
-				<a class="btn-primary-lg" href="/auth">
+				<a class="btn-primary-lg" href="/auth?mode=register">
 					<span>Get started</span>
 					<ArrowRight size={15} strokeWidth={2} />
 				</a>

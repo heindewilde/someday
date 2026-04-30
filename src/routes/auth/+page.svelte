@@ -3,7 +3,7 @@
 	import { ArrowLeft } from 'lucide-svelte';
 
 	let { data, form } = $props();
-	let mode = $state<'login' | 'register'>('login');
+	let mode = $state<'login' | 'register'>(data.canRegister ? data.initialMode : 'login');
 	$effect(() => {
 		if (!data.canRegister && mode === 'register') mode = 'login';
 	});
