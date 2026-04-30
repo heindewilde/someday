@@ -74,7 +74,7 @@
 		},
 		{
 			icon: Tags,
-			title: 'Knows what you saved',
+			title: 'Know what you saved',
 			body: 'News, social posts, products, videos — Someday recognizes the type and adapts the view.'
 		}
 	];
