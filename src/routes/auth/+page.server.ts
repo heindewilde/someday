@@ -25,7 +25,7 @@ function safeNext(next: FormDataEntryValue | string | null): string {
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const next = safeNext(url.searchParams.get('next'));
 	if (locals.user) redirect(302, next);
-	const initialMode = url.searchParams.get('mode') === 'register' ? 'register' : 'login';
+	const initialMode: 'login' | 'register' = url.searchParams.get('mode') === 'register' ? 'register' : 'login';
 	return {
 		next,
 		initialMode,

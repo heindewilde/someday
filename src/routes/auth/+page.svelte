@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { ArrowLeft } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 
 	let { data, form } = $props();
-	let mode = $state<'login' | 'register'>(data.canRegister ? data.initialMode : 'login');
+	let mode = $state<'login' | 'register'>(
+		untrack(() => (data.canRegister ? data.initialMode : 'login'))
+	);
 	$effect(() => {
 		if (!data.canRegister && mode === 'register') mode = 'login';
 	});
