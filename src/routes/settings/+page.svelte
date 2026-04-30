@@ -24,6 +24,8 @@
 	let importLoading = $state(false);
 	let importProgress = $state(0);
 	let importTotal = $state(0);
+	let importTruncated = $state(false);
+	let importTotalInFile = $state(0);
 	let importResult = $state<{ imported: number; skipped: number } | null>(null);
 	let importError = $state<string | null>(null);
 	let dragOver = $state(false);
@@ -105,6 +107,8 @@
 			const data = await res.json();
 			if (data.total !== undefined) importTotal = data.total;
 			if (data.progress !== undefined) importProgress = data.progress;
+			if (data.truncated !== undefined) importTruncated = data.truncated;
+			if (data.totalInFile !== undefined) importTotalInFile = data.totalInFile;
 			if (data.done) {
 				importResult = { imported: data.imported, skipped: data.skipped };
 				importLoading = false;
@@ -124,9 +128,13 @@
 			importLoading = true;
 			importTotal = data.total ?? 0;
 			importProgress = data.progress ?? 0;
+			importTruncated = data.truncated ?? false;
+			importTotalInFile = data.totalInFile ?? 0;
 			startPolling();
 		} else if (data.done) {
 			importResult = { imported: data.imported, skipped: data.skipped };
+			importTruncated = data.truncated ?? false;
+			importTotalInFile = data.totalInFile ?? 0;
 		}
 	});
 
@@ -149,6 +157,8 @@
 			}
 			const data = await res.json();
 			importTotal = data.total ?? 0;
+			importTruncated = data.truncated ?? false;
+			importTotalInFile = data.totalInFile ?? 0;
 			importFile = null;
 			if (fileInputEl) fileInputEl.value = '';
 			startPolling();
@@ -286,6 +296,9 @@
 			{#if importResult}
 				<p class="import-done">
 					Imported {importResult.imported} article{importResult.imported !== 1 ? 's' : ''}{importResult.skipped > 0 ? ` · ${importResult.skipped} already existed` : ''}.
+					{#if importTruncated}
+						Your file had {importTotalInFile.toLocaleString()} articles — upload the remaining {(importTotalInFile - 10000).toLocaleString()} separately to include them.
+					{/if}
 				</p>
 				<a href="/" class="btn" style="margin-top: 0.75rem;">Go to library</a>
 			{:else}
@@ -339,6 +352,9 @@
 						{/if}
 					</p>
 					<p class="leave-hint">You can safely leave this page — the import continues in the background.</p>
+					{#if importTruncated}
+						<p class="import-truncated">Your file contains {importTotalInFile.toLocaleString()} articles. Only the first 10,000 are being imported. Upload the remaining articles in a separate import to include them.</p>
+					{/if}
 				{/if}
 
 				{#if importError}
@@ -624,6 +640,12 @@
 		font-size: 0.8125rem;
 		color: var(--color-success);
 		margin: 0;
+	}
+
+	.import-truncated {
+		font-size: 0.8125rem;
+		color: var(--color-muted);
+		margin: 0 0 0.75rem;
 	}
 
 	/* Bookmarklet / install */

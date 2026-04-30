@@ -9,6 +9,7 @@ import type { RequestHandler } from './$types';
 
 const CONCURRENCY = 5;
 const JOB_TTL_MS = 5 * 60 * 1000;
+const IMPORT_LIMIT = 10_000;
 // Minimum gap between consecutive fetches to the same hostname. Prevents a
 // CSV heavy on one domain (e.g. 500 Medium articles) from burning the shared
 // Fly.io IP and triggering a ban that affects all users.
@@ -22,6 +23,8 @@ interface ImportJob {
 	done: boolean;
 	error: string | null;
 	completedAt: number | null;
+	truncated: boolean;
+	totalInFile: number;
 }
 
 const importJobs = new Map<string, ImportJob>();
@@ -226,6 +229,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 		skipped: job.skipped,
 		done: job.done,
 		error: job.error,
+		truncated: job.truncated,
+		totalInFile: job.totalInFile,
 	});
 };
 
@@ -258,26 +263,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	};
 
 	const dataRows = rows.slice(1).filter(r => (r[idx.url] ?? '').trim().length > 0);
-	const total = dataRows.length;
+	const totalInFile = dataRows.length;
+	const truncated = totalInFile > IMPORT_LIMIT;
+	const limitedRows = truncated ? dataRows.slice(0, IMPORT_LIMIT) : dataRows;
 
 	const job: ImportJob = {
-		total,
+		total: limitedRows.length,
 		progress: 0,
 		imported: 0,
 		skipped: 0,
 		done: false,
 		error: null,
 		completedAt: null,
+		truncated,
+		totalInFile,
 	};
 	importJobs.set(locals.user.id, job);
 
 	// Fire and forget — runs after response is sent
-	runImport(job, dataRows, idx, locals.user.id, locals.user.region).catch(e => {
+	runImport(job, limitedRows, idx, locals.user.id, locals.user.region).catch(e => {
 		console.error('Readwise import failed:', e);
 		job.error = e.message;
 		job.done = true;
 		job.completedAt = Date.now();
 	});
 
-	return json({ total });
+	return json({ total: limitedRows.length, truncated, totalInFile });
 };
