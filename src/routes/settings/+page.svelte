@@ -13,7 +13,7 @@
 	});
 
 	// svelte-ignore state_referenced_locally
-	let nameValue = $state(data.user.name ?? '');
+	let usernameValue = $state(data.user.username ?? '');
 	// svelte-ignore state_referenced_locally
 	let emailValue = $state(data.user.email ?? '');
 	let emailPassword = $state('');
@@ -53,8 +53,8 @@
 	async function saveName() {
 		nameStatus = null;
 		try {
-			await patch('updateName', { name: nameValue });
-			nameStatus = { type: 'success', message: 'Name updated.' };
+			await patch('updateUsername', { username: usernameValue });
+			nameStatus = { type: 'success', message: 'Username updated.' };
 		} catch (e: any) {
 			nameStatus = { type: 'error', message: e.message };
 		}
@@ -204,15 +204,16 @@
 
 	<div class="sections">
 		<section class="card">
-			<h2>Display name</h2>
-			<p class="desc">How you appear in the app.</p>
-			<div class="field">
-				<input type="text" bind:value={nameValue} placeholder="Your name" />
+			<h2>Username</h2>
+			<p class="desc">Your public handle. Starts with @.</p>
+			<div class="field username-field">
+				<span class="username-prefix">@</span>
+				<input type="text" bind:value={usernameValue} placeholder="yourhandle" class="username-input" />
 			</div>
 			{#if nameStatus}
 				<p class="status" class:error={nameStatus.type === 'error'}>{nameStatus.message}</p>
 			{/if}
-			<button class="btn" onclick={saveName}>Save name</button>
+			<button class="btn" onclick={saveName}>Save username</button>
 		</section>
 
 		<section class="card">
@@ -695,4 +696,25 @@
 
 	.bm-details li + li { margin-top: 0.375rem; }
 	.bm-details strong { color: var(--color-text); }
+
+	.username-field {
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.username-prefix {
+		font-size: 1rem;
+		color: var(--color-muted);
+		padding: 0.5rem 0 0.5rem 0.75rem;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-right: none;
+		border-radius: var(--radius-md) 0 0 var(--radius-md);
+		line-height: 1;
+		user-select: none;
+	}
+
+	.username-input {
+		border-radius: 0 var(--radius-md) var(--radius-md) 0 !important;
+	}
 </style>

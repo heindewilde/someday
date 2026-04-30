@@ -98,7 +98,7 @@ export async function getSession(cookies: Cookies) {
 		.select({
 			userId: users.id,
 			email: users.email,
-			name: users.name,
+			username: users.username,
 			expiresAt: sessions.expiresAt
 		})
 		.from(sessions)
@@ -110,7 +110,7 @@ export async function getSession(cookies: Cookies) {
 		return null;
 	}
 
-	return { id: row.userId, email: row.email, name: row.name, region };
+	return { id: row.userId, email: row.email, username: row.username, region };
 }
 
 export async function deleteSession(cookies: Cookies) {
