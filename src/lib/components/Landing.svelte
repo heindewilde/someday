@@ -2,15 +2,17 @@
 	import {
 		Github,
 		ArrowRight,
-		BookOpen,
-		Highlighter,
-		Search,
-		Languages,
-		Inbox,
 		Lock,
+		Database,
+		Zap,
+		Sparkles,
+		CheckCircle,
+		BookmarkPlus,
+		Users,
+		Download,
+		Tags,
 		Moon,
-		Sun,
-		Star
+		Sun
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -31,34 +33,49 @@
 
 	const features = [
 		{
-			icon: Inbox,
-			title: 'Save from anywhere',
-			body: 'Paste a URL, drop a bookmarklet, forward an email, or import from Readwise. Tracking params stripped, duplicates skipped.'
-		},
-		{
-			icon: BookOpen,
-			title: 'A reader that gets out of the way',
-			body: 'Readability-powered extraction, thoughtful typography, light and dark themes. Save any article as a PDF.'
-		},
-		{
-			icon: Highlighter,
-			title: 'Highlights & notes',
-			body: 'Select-to-highlight with inline notes and a side panel that follows you through the article.'
-		},
-		{
-			icon: Search,
-			title: 'Fast full-text search',
-			body: 'SQLite FTS5 + BM25 across your whole library. Similar-article discovery without a vector DB.'
-		},
-		{
-			icon: Languages,
-			title: '15-language translation',
-			body: 'One-click translation via Lingva — read anything in your language, without leaving the reader.'
-		},
-		{
 			icon: Lock,
-			title: 'Own your data',
-			body: 'One SQLite file. AGPL-3.0 licensed. Self-host on a Raspberry Pi, or use the hosted cloud.'
+			title: 'Private by design',
+			body: 'No tracking, no ads, no profiling your reading habits. Your library is yours alone.'
+		},
+		{
+			icon: Database,
+			title: 'Choose where your data lives',
+			body: 'US, EU, APAC, or your own server. Export or move it any time — no lock-in, ever.'
+		},
+		{
+			icon: Zap,
+			title: 'Fast and lightweight',
+			body: 'Loads instantly, works on any connection. Snappy on the train, on a plane, on a phone.'
+		},
+		{
+			icon: Sparkles,
+			title: 'Beautifully designed',
+			body: 'A distraction-free reading experience with thoughtful typography and light and dark themes.'
+		},
+		{
+			icon: CheckCircle,
+			title: 'All features you need',
+			body: 'Highlights, notes, search, translation, collections. Everything a serious reader needs, nothing you don\'t.'
+		},
+		{
+			icon: BookmarkPlus,
+			title: 'Save in one click',
+			body: 'A bookmarklet, an email forward, or a simple paste. Save anything in seconds without breaking your flow.'
+		},
+		{
+			icon: Users,
+			title: 'Share with friends',
+			body: 'Curate a collection and send a link. Anyone with the link can read along, no account required.'
+		},
+		{
+			icon: Download,
+			title: 'Bring your library along',
+			body: 'Import from Pocket, Instapaper, Readwise, and more. Switching shouldn\'t mean starting over.'
+		},
+		{
+			icon: Tags,
+			title: 'Know what you saved',
+			body: 'News, social posts, products, videos — Someday recognizes the type and adapts the view.'
 		}
 	];
 </script>
@@ -82,7 +99,7 @@
 				<Github size={16} strokeWidth={2} />
 			</a>
 			<a class="btn-ghost" href="/auth">Sign in</a>
-			<a class="btn-primary" href="/auth">Get started</a>
+			<a class="btn-primary" href="/auth?mode=register">Get started</a>
 		</nav>
 	</header>
 
@@ -91,10 +108,6 @@
 			<a class="eyebrow" href={GITHUB_URL} target="_blank" rel="noreferrer noopener">
 				<Github size={13} strokeWidth={2} />
 				<span>Open source</span>
-				<span class="eyebrow-sep">·</span>
-				<Star size={13} strokeWidth={2} fill="currentColor" />
-				<span>AGPL-3.0</span>
-				<ArrowRight size={13} strokeWidth={2} />
 			</a>
 
 			<h1>
@@ -102,23 +115,18 @@
 			</h1>
 
 			<p class="subtitle">
-				Someday is an open-source read-it-later app. Save from anywhere, read in
-				a distraction-free reader, highlight what matters, and own every byte of
-				your library.
+				Save articles, read them beautifully, and keep full control of your data.
+				Someday has all features you expect from a read-later app, while being incredibly fast, lightweight, and private by design.
 			</p>
 
 			<div class="cta-row">
-				<a class="btn-primary-lg" href="/auth">
+				<a class="btn-primary-lg" href="/auth?mode=register">
 					<span>Get started</span>
 					<ArrowRight size={15} strokeWidth={2} />
 				</a>
-				<a class="btn-ghost-lg" href={GITHUB_URL} target="_blank" rel="noreferrer noopener">
-					<Github size={15} strokeWidth={2} />
-					<span>Star on GitHub</span>
-				</a>
 			</div>
 
-			<p class="hero-note">Free to self-host. Free to try on the cloud.</p>
+			<p class="hero-note">Free to start. No credit card required.</p>
 		</section>
 
 		<section class="features" aria-label="Features">
@@ -282,10 +290,6 @@
 		color: var(--color-text);
 	}
 
-	.eyebrow-sep {
-		color: var(--color-subtle);
-	}
-
 	h1 {
 		margin: 1.5rem 0 1.25rem;
 		font-size: clamp(2rem, 5vw, 3.375rem);
@@ -311,8 +315,7 @@
 		flex-wrap: wrap;
 	}
 
-	.btn-primary-lg,
-	.btn-ghost-lg {
+	.btn-primary-lg {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -321,27 +324,14 @@
 		font-size: 0.9375rem;
 		font-weight: 500;
 		text-decoration: none;
-		transition: opacity 0.15s, background 0.15s, border-color 0.15s;
-	}
-
-	.btn-primary-lg {
 		background: var(--color-text);
 		color: var(--color-bg);
 		border: 1px solid var(--color-text);
+		transition: opacity 0.15s;
 	}
 
 	.btn-primary-lg:hover {
 		opacity: 0.9;
-	}
-
-	.btn-ghost-lg {
-		background: var(--color-surface);
-		color: var(--color-text);
-		border: 1px solid var(--color-border);
-	}
-
-	.btn-ghost-lg:hover {
-		border-color: var(--color-border-strong);
 	}
 
 	.hero-note {
